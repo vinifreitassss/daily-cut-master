@@ -128,9 +128,11 @@ function Index() {
                 <h2 className="text-base font-bold uppercase tracking-widest text-muted-foreground mt-6 mb-3">
                   Detalhamento Diário
                 </h2>
-                {result.days.map((d, i) => (
-                  <DayBlock key={i} day={d} />
-                ))}
+                <DaysGrid>
+                  {result.days.map((d, i) => (
+                    <DayBlock key={i} day={d} />
+                  ))}
+                </DaysGrid>
               </>
             )}
           </div>
