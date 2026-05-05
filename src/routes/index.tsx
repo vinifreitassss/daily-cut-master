@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { parseOrders } from "@/lib/parseOrders";
-import { ConsolidatedSheet, DayBlock } from "@/components/OrderSheet";
+import { ConsolidatedSheet, DayBlock, DaysGrid } from "@/components/OrderSheet";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
