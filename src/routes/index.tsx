@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { parseOrders } from "@/lib/parseOrders";
-import { ConsolidatedSheet, DayBlock } from "@/components/OrderSheet";
+import { ConsolidatedSheet, DayBlock, DaysGrid } from "@/components/OrderSheet";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -128,9 +128,11 @@ function Index() {
                 <h2 className="text-base font-bold uppercase tracking-widest text-muted-foreground mt-6 mb-3">
                   Detalhamento Diário
                 </h2>
-                {result.days.map((d, i) => (
-                  <DayBlock key={i} day={d} />
-                ))}
+                <DaysGrid>
+                  {result.days.map((d, i) => (
+                    <DayBlock key={i} day={d} />
+                  ))}
+                </DaysGrid>
               </>
             )}
           </div>
