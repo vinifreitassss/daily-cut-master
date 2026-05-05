@@ -142,3 +142,23 @@
     color: var(--color-foreground);
   }
 }
+
+@media print {
+  @page { size: A4; margin: 12mm; }
+  .no-print { display: none !important; }
+  .print-area { box-shadow: none !important; }
+  body { background: white !important; }
+  .page-break { page-break-before: always; }
+  .avoid-break { break-inside: avoid; page-break-inside: avoid; }
+}
+
+.checkbox-print {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid var(--foreground);
+  border-radius: 3px;
+  margin-right: 8px;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
