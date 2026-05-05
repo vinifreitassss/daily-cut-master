@@ -100,8 +100,44 @@ export function parseOrders(input: string): ParseResult {
   }
   pushSection();
 
-  return {
-    days,
-    consolidated: consolidatedSections.length ? consolidatedSections : null,
-  };
+  const consolidated = consolidatedSections.length
+    ? consolidatedSections
+    : buildConsolidated(days);
+
+  return { days, consolidated };
 }
+
+function buildConsolidated(days: DaySheet[]): Section[] | null {
+  if (!days.length) return null;
+  // key -> Section accumulator
+  const sectionMap = new Map<Section["key"], Section>();
+
+  for (const day of days) {
+    for (const sec of day.sections) {
+      let acc = sectionMap.get(sec.key);
+      if (!acc) {
+        acc = { key: sec.key, title: sec.title, emoji: sec.emoji, groups: [] };
+        sectionMap.set(sec.key, acc);
+      }
+      for (const g of sec.groups) {
+        let group = acc.groups.find((x) => x.variation === g.variation);
+        if (!group) {
+          group = { variation: g.variation, items: [] };
+          acc.groups.push(group);
+        }
+        for (const it of g.items) {
+          const existing = group.items.find(
+            (x) => x.name === it.name && (x.unit || "") === (it.unit || "")
+          );
+          if (existing) existing.qty += it.qty;
+          else group.items.push({ ...it });
+        }
+      }
+    }
+  }
+
+  // Order: trofeus, medalhas, mdf, outros
+  const order: Section["key"][] = ["trofeus", "medalhas", "mdf", "outros"];
+  return order.map((k) => sectionMap.get(k)).filter((s): s is Section => !!s);
+}
+
