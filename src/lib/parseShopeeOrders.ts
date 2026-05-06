@@ -317,15 +317,19 @@ function classify(raw: RawItem): ClassifiedItem[] {
     ];
   }
 
-  // Fallback: joga em "outros" para o usuário ver e revisar
+  // Fallback: joga em "outros" usando o nome do produto como rótulo.
+  // Encurta nomes muito longos para caber bem na ordem de corte impressa.
+  const shortName = raw.product.length > 60 ? raw.product.slice(0, 57) + "…" : raw.product;
+  const label = variation ? `${shortName} — ${variation}` : shortName;
   return [
     {
       sectionKey: "outros",
       sectionTitle: "Outros",
       sectionEmoji: "📦",
       variationGroup: "",
-      itemName: `${raw.product} — ${variation}`,
+      itemName: label,
       qty: mult,
+      unit: "un",
     },
   ];
 }
