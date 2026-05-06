@@ -1,21 +1,27 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { parseOrders } from "@/lib/parseOrders";
+import { parseOrders, buildConsolidated, type ParseResult } from "@/lib/parseOrders";
+import { parseShopeeOrders } from "@/lib/parseShopeeOrders";
 import { ConsolidatedSheet, DayBlock, DaysGrid } from "@/components/OrderSheet";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 export const Route = createFileRoute("/")({
   component: Index,
   head: () => ({
     meta: [
       { title: "Ordem de Corte — Silva Campos Esportes" },
-      { name: "description", content: "Cole sua lista de pedidos e gere uma ordem de corte organizada para impressão." },
+      {
+        name: "description",
+        content:
+          "Cole sua lista de pedidos e gere uma ordem de corte organizada para impressão.",
+      },
     ],
   }),
 });
 
-const EXAMPLE = `📅 06/05/2026
+const EXAMPLE_STRUCTURED = `📅 06/05/2026
 
 🏆 Troféus
 TFA117
@@ -30,11 +36,45 @@ Taça MDF
 🏅 Medalhas
 5 cm com fita (kit 30) → 120 un`;
 
-function Index() {
-  const [text, setText] = useState("");
-  const [submitted, setSubmitted] = useState("");
+const EXAMPLE_RAW = `raianeevelinromisdosreis
+ID do Pedido 260424NHMG4NNH
+Sob encomenda
+Kit Medalhas Personalizadas de acrílico de 5 cm Adesivadas com Fita Diversas Quantidades
+Variação: 5 cm com fita,30
+x2
+R$139,25
+Por favor, envie o pedido antes de 06/05/2026 para evitar o cancelamento automático.`;
 
-  const result = useMemo(() => (submitted ? parseOrders(submitted) : null), [submitted]);
+type Mode = "structured" | "raw";
+
+function Index() {
+  const [mode, setMode] = useState<Mode>("structured");
+  const [text, setText] = useState("");
+  const [submitted, setSubmitted] = useState<{ mode: Mode; text: string } | null>(null);
+
+  const { result, unrecognized } = useMemo<{
+    result: ParseResult | null;
+    unrecognized: string[];
+  }>(() => {
+    if (!submitted) return { result: null, unrecognized: [] };
+    if (submitted.mode === "structured") {
+      return { result: parseOrders(submitted.text), unrecognized: [] };
+    }
+    const r = parseShopeeOrders(submitted.text);
+    return {
+      result: { days: r.days, consolidated: buildConsolidated(r.days) },
+      unrecognized: r.unrecognized,
+    };
+  }, [submitted]);
+
+  const handleGenerate = () => setSubmitted({ mode, text });
+  const handleClear = () => {
+    setText("");
+    setSubmitted(null);
+  };
+
+  const placeholder = mode === "structured" ? EXAMPLE_STRUCTURED : EXAMPLE_RAW;
+  const example = mode === "structured" ? EXAMPLE_STRUCTURED : EXAMPLE_RAW;
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -45,21 +85,10 @@ function Index() {
             <p className="text-xs text-muted-foreground">Cole a lista, gere e imprima</p>
           </div>
           <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setText("");
-                setSubmitted("");
-              }}
-            >
+            <Button variant="outline" size="sm" onClick={handleClear}>
               Limpar
             </Button>
-            <Button
-              size="sm"
-              onClick={() => setSubmitted(text)}
-              disabled={!text.trim()}
-            >
+            <Button size="sm" onClick={handleGenerate} disabled={!text.trim()}>
               Gerar
             </Button>
             <Button
@@ -77,32 +106,43 @@ function Index() {
       <main className="max-w-5xl mx-auto px-4 py-6">
         {!result && (
           <section className="no-print">
-            <label className="block text-sm font-semibold mb-2">
-              Cole aqui a lista de pedidos
-            </label>
+            <Tabs value={mode} onValueChange={(v) => setMode(v as Mode)} className="mb-4">
+              <TabsList>
+                <TabsTrigger value="structured">📋 Lista estruturada</TabsTrigger>
+                <TabsTrigger value="raw">🛒 Pedidos brutos (Shopee)</TabsTrigger>
+              </TabsList>
+              <TabsContent value="structured">
+                <p className="text-xs text-muted-foreground mb-2">
+                  Cole o texto já organizado por <code>📅 data</code>,{" "}
+                  <code>🏆/🏅/🧱</code> e <code>tamanho → qtd</code>.
+                </p>
+              </TabsContent>
+              <TabsContent value="raw">
+                <p className="text-xs text-muted-foreground mb-2">
+                  Cole o texto cru direto da Shopee. O app extrai data, produto, variação e
+                  quantidade automaticamente.
+                </p>
+              </TabsContent>
+            </Tabs>
+
             <Textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder={EXAMPLE}
+              placeholder={placeholder}
               className="min-h-[400px] font-mono text-sm"
             />
             <div className="mt-3 flex items-center gap-3">
-              <Button onClick={() => setSubmitted(text)} disabled={!text.trim()}>
+              <Button onClick={handleGenerate} disabled={!text.trim()}>
                 Gerar Ordem de Corte
               </Button>
               <button
                 type="button"
                 className="text-xs underline text-muted-foreground"
-                onClick={() => setText(EXAMPLE)}
+                onClick={() => setText(example)}
               >
                 Carregar exemplo
               </button>
             </div>
-            <p className="mt-3 text-xs text-muted-foreground">
-              Formato esperado: <code>📅 data</code>, depois <code>🏆 Troféus</code>,{" "}
-              <code>🏅 Medalhas</code>, <code>🧱 MDF extra</code>, e por fim{" "}
-              <code>📊 CONSOLIDADO FINAL</code>. Itens no formato <code>tamanho → qtd</code>.
-            </p>
           </section>
         )}
 
@@ -112,14 +152,21 @@ function Index() {
               <div>
                 <h1 className="text-2xl font-extrabold tracking-tight">Ordem de Corte</h1>
                 <p className="text-xs text-muted-foreground">
-                  Gerado em {new Date().toLocaleDateString("pt-BR")} —{" "}
-                  {result.days.length} dia(s)
+                  Gerado em {new Date().toLocaleDateString("pt-BR")} — {result.days.length}{" "}
+                  dia(s)
                 </p>
               </div>
               <div className="text-right text-xs text-muted-foreground">
                 <div>Silva Campos Esportes</div>
               </div>
             </div>
+
+            {unrecognized.length > 0 && (
+              <div className="no-print mb-4 rounded-md border border-yellow-500/40 bg-yellow-500/10 p-3 text-sm">
+                <strong>⚠️ {unrecognized.length} pedido(s) não reconhecido(s):</strong>{" "}
+                {unrecognized.join(", ")}. Revise o texto colado.
+              </div>
+            )}
 
             {result.consolidated && <ConsolidatedSheet sections={result.consolidated} />}
 
