@@ -45,42 +45,60 @@ function extractDate(block: string): string {
   return m ? m[1] : "Sem data";
 }
 
-/** Extrai todos os itens (produto + variação + xN) de um bloco. */
+/**
+ * Extrai todos os itens de um bloco.
+ * Estratégia: percorre as linhas e para cada "xN" encontrada considera o
+ * último produto visto (linha não-vazia que não é meta) e a última "Variação:"
+ * (se houver) entre o produto e o "xN". Isso captura tanto pedidos com variação
+ * quanto produtos novos sem variação (ex.: "Hand Grip ... \n x1").
+ */
 function extractRawItems(block: string): RawItem[] {
   const lines = block.split(/\r?\n/).map((l) => l.trim());
   const items: RawItem[] = [];
 
-  // Procura cada "Variação:" e usa a linha de produto mais próxima ACIMA
-  // (a primeira linha não-vazia anterior que não seja "Sob encomenda").
+  const isMeta = (s: string) =>
+    !s ||
+    /^Sob encomenda$/i.test(s) ||
+    /^ID do Pedido/i.test(s) ||
+    /^Variação:/i.test(s) ||
+    /^x\d+$/i.test(s) ||
+    /^Mensagem:?$/i.test(s);
+
+  let lastProduct = "";
+  let lastVariation = "";
+  let productLineIdx = -1;
+  let variationLineIdx = -1;
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+    if (!line) continue;
+
     const varMatch = line.match(/^Variação:\s*(.+)$/i);
-    if (!varMatch) continue;
-    const variation = varMatch[1].trim();
-
-    // produto: linha não-vazia anterior mais próxima diferente de "Sob encomenda"
-    let product = "";
-    for (let j = i - 1; j >= 0; j--) {
-      const prev = lines[j];
-      if (!prev) continue;
-      if (/^Sob encomenda$/i.test(prev)) continue;
-      if (/^ID do Pedido/i.test(prev)) break;
-      if (/^Variação:/i.test(prev)) break;
-      product = prev;
-      break;
+    if (varMatch) {
+      lastVariation = varMatch[1].trim();
+      variationLineIdx = i;
+      continue;
     }
 
-    // multiplicador: próxima linha "xN" depois da Variação
-    let multiplier = 1;
-    for (let j = i + 1; j < Math.min(lines.length, i + 5); j++) {
-      const m = lines[j].match(/^x(\d+)$/i);
-      if (m) {
-        multiplier = parseInt(m[1], 10) || 1;
-        break;
+    const xMatch = line.match(/^x(\d+)$/i);
+    if (xMatch) {
+      const multiplier = parseInt(xMatch[1], 10) || 1;
+      // Só consome a variação se ela apareceu DEPOIS do produto atual
+      const variation = variationLineIdx > productLineIdx ? lastVariation : "";
+      if (lastProduct) {
+        items.push({ product: lastProduct, variation, multiplier });
       }
+      // limpa variação para não vazar para o próximo item do mesmo bloco
+      lastVariation = "";
+      variationLineIdx = -1;
+      continue;
     }
 
-    if (product) items.push({ product, variation, multiplier });
+    // qualquer outra linha "real" é candidata a nome de produto
+    if (!isMeta(line)) {
+      lastProduct = line;
+      productLineIdx = i;
+    }
   }
 
   return items;
@@ -124,28 +142,65 @@ function classify(raw: RawItem): ClassifiedItem[] {
     ];
   }
 
-  // ============= MEDALHAS RESINADAS / CHAVEIROS =============
-  if (/medalh.*resinad/i.test(product) || /chaveir/i.test(product)) {
-    // variação tipo "5 cm,10" → kit de 10
+  // ============= MEDALHAS RESINADAS / CHAVEIROS DE MEDALHA =============
+  // Só entra aqui se for medalha resinada OU chaveiro de medalha (kit numérico).
+  if (/medalh.*resinad/i.test(product) || /medalh.*chaveir|chaveir.*medalh/i.test(product)) {
     const m = variation.match(/(.+?),\s*(\d+)/);
     if (m) {
       const tamanho = m[1].trim();
       const kit = parseInt(m[2], 10);
-      const isChaveiro = /chaveir/i.test(product);
+      if (!Number.isNaN(kit) && kit > 0) {
+        return [
+          {
+            sectionKey: "medalhas",
+            sectionTitle: "Medalhas",
+            sectionEmoji: "🏅",
+            variationGroup: "",
+            itemName: `${tamanho} resinado (kit ${kit})`,
+            qty: mult * kit,
+            unit: "un",
+          },
+        ];
+      }
+    }
+  }
+
+  // ============= MEDALHA ACRÍLICO CRISTAL LISA (variação = nº do kit) =============
+  // Ex: "Medalha Acrílico Cristal 2mm Redonda Lisa 8 cm Kit 50 - 100 unidades"
+  // variação "30" / "50" / "100" → o número É o tamanho do kit.
+  if (/medalh.*cristal|medalh.*lisa/i.test(product)) {
+    const kit = parseInt(variation.trim(), 10);
+    if (!Number.isNaN(kit) && kit > 0) {
+      const sizeMatch = product.match(/(\d+)\s*cm/);
+      const tamanho = sizeMatch ? `${sizeMatch[1]} cm cristal lisa` : "cristal lisa";
       return [
         {
-          sectionKey: isChaveiro ? "mdf" : "medalhas",
-          sectionTitle: isChaveiro ? "MDF Extra" : "Medalhas",
-          sectionEmoji: isChaveiro ? "🧱" : "🏅",
+          sectionKey: "medalhas",
+          sectionTitle: "Medalhas",
+          sectionEmoji: "🏅",
           variationGroup: "",
-          itemName: isChaveiro
-            ? `Chaveiros ${tamanho} (kit ${kit})`
-            : `${tamanho} resinado (kit ${kit})`,
+          itemName: `${tamanho} (kit ${kit})`,
           qty: mult * kit,
           unit: "un",
         },
       ];
     }
+  }
+
+  // ============= KIT 12 TROFÉUS DECORATIVOS (festa/totem) =============
+  // Sem variação, qty multiplica por 12 unidades.
+  if (/kit\s+12\s+trof[eé]us/i.test(product) || /trof[eé]us.*totem.*display/i.test(product)) {
+    return [
+      {
+        sectionKey: "outros",
+        sectionTitle: "Decoração / Festa",
+        sectionEmoji: "🎉",
+        variationGroup: "Kit 12 Troféus decorativos",
+        itemName: "Kit 12 un",
+        qty: mult * 12,
+        unit: "un",
+      },
+    ];
   }
 
   // ============= KIT TROFÉUS (TFA117/206/210, TA206) =============
@@ -262,15 +317,19 @@ function classify(raw: RawItem): ClassifiedItem[] {
     ];
   }
 
-  // Fallback: joga em "outros" para o usuário ver e revisar
+  // Fallback: joga em "outros" usando o nome do produto como rótulo.
+  // Encurta nomes muito longos para caber bem na ordem de corte impressa.
+  const shortName = raw.product.length > 60 ? raw.product.slice(0, 57) + "…" : raw.product;
+  const label = variation ? `${shortName} — ${variation}` : shortName;
   return [
     {
       sectionKey: "outros",
       sectionTitle: "Outros",
       sectionEmoji: "📦",
       variationGroup: "",
-      itemName: `${raw.product} — ${variation}`,
+      itemName: label,
       qty: mult,
+      unit: "un",
     },
   ];
 }
