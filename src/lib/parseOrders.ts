@@ -107,7 +107,7 @@ export function parseOrders(input: string): ParseResult {
   return { days, consolidated };
 }
 
-function buildConsolidated(days: DaySheet[]): Section[] | null {
+export function buildConsolidated(days: DaySheet[]): Section[] | null {
   if (!days.length) return null;
   // key -> Section accumulator
   const sectionMap = new Map<Section["key"], Section>();
