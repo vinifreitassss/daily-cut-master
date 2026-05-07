@@ -110,81 +110,62 @@ function classify(raw: RawItem): ClassifiedItem[] {
   const variation = raw.variation;
   const mult = raw.multiplier;
 
-  // ============= MEDALHAS COM FITA (adesivadas) =============
-  if (/medalh.*adesivad.*fita/i.test(product) || /medalh.*5 cm adesivad/i.test(product)) {
-    // variação tipo "5 cm com fita,30" → kit de 30 → mult * 30 unidades
-    const m = variation.match(/(.+?),\s*(\d+)/);
+  // ============= MEDALHAS (todas: fita, sem fita, resinada, cristal lisa) =============
+  // Esta ordem é para CORTE: o que importa é o tamanho da medalha em cm e a
+  // quantidade total de unidades. Não distinguimos "com fita / sem fita /
+  // resinada", pois o corte do disco é o mesmo.
+  const isMedalhaAdesivada =
+    /medalh.*adesivad.*fita/i.test(product) || /medalh.*5 cm adesivad/i.test(product);
+  const isMedalhaResinada =
+    /medalh.*resinad/i.test(product) || /medalh.*chaveir|chaveir.*medalh/i.test(product);
+  const isMedalhaCristal = /medalh.*cristal|medalh.*lisa/i.test(product);
+  const isMedalhaRecortada = /medalha.*acr[ií]lico.*recortad/i.test(product);
+
+  if (isMedalhaAdesivada || isMedalhaResinada || isMedalhaCristal || isMedalhaRecortada) {
+    let sizeCm: number | null = null;
+    let kit: number | null = null;
+
+    // Tenta extrair "X cm" + kit da variação (formato "5 cm com fita,30" / "6 cm,10" / "8cm,10").
+    const m = variation.match(/(\d+)\s*cm.*?,\s*(\d+)/i);
     if (m) {
-      const tipo = m[1].trim(); // "5 cm com fita"
-      const kit = parseInt(m[2], 10);
+      sizeCm = parseInt(m[1], 10);
+      kit = parseInt(m[2], 10);
+    } else if (isMedalhaCristal) {
+      // Cristal lisa: variação é só o número do kit; tamanho está no título.
+      const k = parseInt(variation.trim(), 10);
+      const sizeFromTitle = product.match(/(\d+)\s*cm/);
+      if (!Number.isNaN(k) && k > 0 && sizeFromTitle) {
+        kit = k;
+        sizeCm = parseInt(sizeFromTitle[1], 10);
+      }
+    }
+
+    if (sizeCm && kit && kit > 0) {
       return [
         {
           sectionKey: "medalhas",
           sectionTitle: "Medalhas",
           sectionEmoji: "🏅",
           variationGroup: "",
-          itemName: `${tipo} (kit ${kit})`,
+          itemName: `${sizeCm} cm`,
           qty: mult * kit,
           unit: "un",
         },
       ];
     }
+
+    // Fallback se não conseguir parsear: registra cru, mas ainda em medalhas.
     return [
       {
         sectionKey: "medalhas",
         sectionTitle: "Medalhas",
         sectionEmoji: "🏅",
         variationGroup: "",
-        itemName: variation,
+        itemName: variation || "sem variação",
         qty: mult,
         unit: "un",
       },
     ];
-  }
-
-  // ============= MEDALHAS RESINADAS / CHAVEIROS DE MEDALHA =============
-  // Só entra aqui se for medalha resinada OU chaveiro de medalha (kit numérico).
-  if (/medalh.*resinad/i.test(product) || /medalh.*chaveir|chaveir.*medalh/i.test(product)) {
-    const m = variation.match(/(.+?),\s*(\d+)/);
-    if (m) {
-      const tamanho = m[1].trim();
-      const kit = parseInt(m[2], 10);
-      if (!Number.isNaN(kit) && kit > 0) {
-        return [
-          {
-            sectionKey: "medalhas",
-            sectionTitle: "Medalhas",
-            sectionEmoji: "🏅",
-            variationGroup: "",
-            itemName: `${tamanho} resinado (kit ${kit})`,
-            qty: mult * kit,
-            unit: "un",
-          },
-        ];
-      }
-    }
-  }
-
-  // ============= MEDALHA ACRÍLICO CRISTAL LISA (variação = nº do kit) =============
-  // Ex: "Medalha Acrílico Cristal 2mm Redonda Lisa 8 cm Kit 50 - 100 unidades"
-  // variação "30" / "50" / "100" → o número É o tamanho do kit.
-  if (/medalh.*cristal|medalh.*lisa/i.test(product)) {
-    const kit = parseInt(variation.trim(), 10);
-    if (!Number.isNaN(kit) && kit > 0) {
-      const sizeMatch = product.match(/(\d+)\s*cm/);
-      const tamanho = sizeMatch ? `${sizeMatch[1]} cm cristal lisa` : "cristal lisa";
-      return [
-        {
-          sectionKey: "medalhas",
-          sectionTitle: "Medalhas",
-          sectionEmoji: "🏅",
-          variationGroup: "",
-          itemName: `${tamanho} (kit ${kit})`,
-          qty: mult * kit,
-          unit: "un",
-        },
-      ];
-    }
   }
 
   // ============= KIT 12 TROFÉUS DECORATIVOS (festa/totem) =============
