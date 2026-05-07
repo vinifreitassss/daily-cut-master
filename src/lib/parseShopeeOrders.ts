@@ -205,12 +205,34 @@ function classify(raw: RawItem): ClassifiedItem[] {
 
   // ============= KIT TROFÉUS (TFA117/206/210, TA206) =============
   // Ex: "kit Troféus de MDF e Acrílico ..." variação "TFA117,KIT 3 PÇS 25/21/18 CM"
-  if (/kit\s+trof[eé]us/i.test(product)) {
+  // Ex: "kit 3 Troféus Personalizados ... Tamanhos 20, 30, 40 cm" variação só "TFA206"
+  if (/kit\s+trof[eé]us|kit\s+\d+\s+trof[eé]us/i.test(product)) {
     const parts = variation.split(",");
     const modelo = (parts[0] || "").trim().toUpperCase();
     const tamanhosRaw = (parts[1] || "").trim();
-    // extrai todos os números do tipo "25", "21", "18"
-    const sizes = (tamanhosRaw.match(/\d+/g) || []).map((s) => parseInt(s, 10));
+
+    // Tenta extrair tamanhos da variação. Importante: pular o "KIT N PÇS"
+    // (o N seria capturado erroneamente como tamanho de 3/4/5 cm).
+    let sizes: number[] = [];
+    if (tamanhosRaw) {
+      // Se o formato for "KIT N PÇS X/Y/Z CM", pega só o que vem depois de PÇS.
+      const afterPcs = tamanhosRaw.match(/p[çc]s?\s*(.+)/i);
+      const fonte = afterPcs ? afterPcs[1] : tamanhosRaw;
+      sizes = (fonte.match(/\d+/g) || [])
+        .map((s) => parseInt(s, 10))
+        // tamanhos válidos de troféu: 15 cm ou mais. Filtra contagem/lixo.
+        .filter((n) => n >= 15);
+    }
+
+    // Fallback: variação sem tamanhos (ex: "TFA206") — extrai do título do produto.
+    if (modelo && !sizes.length) {
+      const tituloSizes = (product.match(/\d+/g) || [])
+        .map((s) => parseInt(s, 10))
+        .filter((n) => n >= 15 && n <= 100);
+      // remove duplicatas mantendo ordem
+      sizes = Array.from(new Set(tituloSizes));
+    }
+
     if (modelo && sizes.length) {
       return sizes.map((s) => ({
         sectionKey: "trofeus" as const,
