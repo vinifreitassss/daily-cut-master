@@ -295,6 +295,47 @@ function classify(raw: RawItem): ClassifiedItem[] {
     }
   }
 
+  // ============= TROFÉU PERSONALIZADO FUTEBOL GRANDE (Artilheiro/Goleiro/etc.) =============
+  if (/trof[eé]u.*personalizado.*futebol.*grande/i.test(product)) {
+    const tipo = (variation.split(",")[0] || "").trim() || "Sem tipo";
+    return [
+      {
+        sectionKey: "trofeus",
+        sectionTitle: "Troféus",
+        sectionEmoji: "🏆",
+        variationGroup: "Futebol Grande Acrílico",
+        itemName: tipo,
+        qty: mult,
+      },
+    ];
+  }
+
+  // ============= CHAVEIROS DE ACRÍLICO (Kit Chaveiros) =============
+  // Ex: "Kit Chaveiros em Acrílico ..." variação "30,Redondo- 2 lados adesivados"
+  // Ex: "Kit 70,80,100 Chaveiros ..." variação "70,Redondo - 1 lado resinado"
+  if (/chaveir.*acr[ií]lico|kit.*chaveir/i.test(product)) {
+    const parts = variation.split(",");
+    const kit = parseInt((parts[0] || "").trim(), 10);
+    const acabamentoRaw = (parts.slice(1).join(",") || "").trim();
+    if (!Number.isNaN(kit) && kit > 0) {
+      const ac = acabamentoRaw.toLowerCase();
+      let acabamento = acabamentoRaw || "padrão";
+      if (/resinad/.test(ac)) acabamento = /1\s*lado/.test(ac) ? "resinado 1 lado" : "resinado";
+      else if (/adesivad/.test(ac)) acabamento = /2\s*lados/.test(ac) ? "adesivado 2 lados" : "adesivado";
+      return [
+        {
+          sectionKey: "mdf",
+          sectionTitle: "MDF Extra",
+          sectionEmoji: "🧱",
+          variationGroup: "Chaveiros Acrílico",
+          itemName: `${acabamento} (kit ${kit})`,
+          qty: mult * kit,
+          unit: "un",
+        },
+      ];
+    }
+  }
+
   // ============= PLACAS =============
   if (/placa.*sinaliza|placa personalizada/i.test(product)) {
     return [
