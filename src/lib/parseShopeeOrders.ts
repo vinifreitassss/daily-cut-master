@@ -245,7 +245,11 @@ function classify(raw: RawItem): ClassifiedItem[] {
   // ============= TROFÉU MDF 35cm (TFA210 / TA206 com tamanho indicado) =============
   // Ex: variação "TFA210,3" ou "TA206,1" — esses pedidos do "Troféu de MDF 35cm" são todos 35 cm
   if (/trof[eé]u de mdf 35\s*cm/i.test(product)) {
-    const modelo = (variation.split(",")[0] || "").trim().toUpperCase();
+    const parts = variation.split(",");
+    const modelo = (parts[0] || "").trim().toUpperCase();
+    // Segundo campo da variação é a quantidade de peças do pedido (ex: "TFA210,3" = 3 un)
+    const qtyFromVar = parseInt((parts[1] || "").trim(), 10);
+    const perOrder = !Number.isNaN(qtyFromVar) && qtyFromVar > 0 ? qtyFromVar : 1;
     return [
       {
         sectionKey: "trofeus",
@@ -253,7 +257,7 @@ function classify(raw: RawItem): ClassifiedItem[] {
         sectionEmoji: "🏆",
         variationGroup: modelo || variation,
         itemName: "35 cm",
-        qty: mult,
+        qty: mult * perOrder,
       },
     ];
   }
