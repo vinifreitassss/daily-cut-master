@@ -103,6 +103,26 @@ function Index() {
             >
               🖨 Imprimir
             </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                const orders = extractShopeeOrdersList(submitted!.text);
+                const txt = formatOrdersAsText(orders);
+                const blob = new Blob([txt], { type: "text/plain;charset=utf-8" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `pedidos-${new Date().toISOString().slice(0, 10)}.txt`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+              }}
+              disabled={!result || !submitted || submitted.mode !== "raw"}
+            >
+              📄 Lista de pedidos (.txt)
+            </Button>
           </div>
         </div>
       </header>
