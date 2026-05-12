@@ -463,3 +463,54 @@ export function parseShopeeOrders(input: string): ShopeeParseResult {
   const days = sortDays(Array.from(daysMap.values())).map(sortSections);
   return { days, unrecognized };
 }
+
+export type OrderSummary = {
+  orderId: string;
+  date: string;
+  items: { product: string; variation: string; qty: number }[];
+};
+
+/** Extrai lista de pedidos (ID + produtos) do texto bruto da Shopee. */
+export function extractShopeeOrdersList(input: string): OrderSummary[] {
+  const blocks = splitBlocks(input);
+  const orders: OrderSummary[] = [];
+  for (const block of blocks) {
+    const idMatch = block.match(/ID do Pedido\s+(\S+)/i);
+    const orderId = idMatch ? idMatch[1] : "?";
+    const date = extractDate(block);
+    const rawItems = extractRawItems(block);
+    orders.push({
+      orderId,
+      date,
+      items: rawItems.map((r) => ({
+        product: r.product,
+        variation: r.variation,
+        qty: r.multiplier,
+      })),
+    });
+  }
+  return orders;
+}
+
+/** Formata os pedidos como texto plano para download em .txt */
+export function formatOrdersAsText(orders: OrderSummary[]): string {
+  const lines: string[] = [];
+  lines.push(`Lista de Pedidos — ${orders.length} pedido(s)`);
+  lines.push(`Gerado em ${new Date().toLocaleString("pt-BR")}`);
+  lines.push("=".repeat(60));
+  lines.push("");
+  for (const o of orders) {
+    lines.push(`Pedido: ${o.orderId}   |   Envio até: ${o.date}`);
+    if (!o.items.length) {
+      lines.push("  (sem itens reconhecidos)");
+    } else {
+      for (const it of o.items) {
+        const variation = it.variation ? ` [${it.variation}]` : "";
+        lines.push(`  - ${it.qty}x ${it.product}${variation}`);
+      }
+    }
+    lines.push("");
+  }
+  return lines.join("\n");
+}
+
