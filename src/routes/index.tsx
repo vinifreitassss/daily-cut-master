@@ -1,7 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { parseOrders, buildConsolidated, type ParseResult } from "@/lib/parseOrders";
-import { parseShopeeOrders } from "@/lib/parseShopeeOrders";
+import {
+  parseShopeeOrders,
+  extractShopeeOrdersList,
+  formatOrdersAsText,
+} from "@/lib/parseShopeeOrders";
 import { ConsolidatedSheet, DayBlock, DaysGrid } from "@/components/OrderSheet";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
