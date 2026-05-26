@@ -195,13 +195,19 @@ function classify(raw: RawItem): ClassifiedItem[] {
     // Tenta extrair tamanhos da variação. Importante: pular o "KIT N PÇS"
     // (o N seria capturado erroneamente como tamanho de 3/4/5 cm).
     let sizes: number[] = [];
+    // Captura o "N" do "KIT N PÇS" — quando o kit tem apenas 1 tamanho, esse
+    // N representa a quantidade de peças iguais (ex: KIT 3 PÇS 30 CM = 3x 30cm).
+    let kitPcs = 1;
+    const kitPcsMatch = tamanhosRaw.match(/kit\s*(\d+)\s*p[çc]s?/i);
+    if (kitPcsMatch) {
+      const k = parseInt(kitPcsMatch[1], 10);
+      if (!Number.isNaN(k) && k > 0) kitPcs = k;
+    }
     if (tamanhosRaw) {
-      // Se o formato for "KIT N PÇS X/Y/Z CM", pega só o que vem depois de PÇS.
       const afterPcs = tamanhosRaw.match(/p[çc]s?\s*(.+)/i);
       const fonte = afterPcs ? afterPcs[1] : tamanhosRaw;
       sizes = (fonte.match(/\d+/g) || [])
         .map((s) => parseInt(s, 10))
-        // tamanhos válidos de troféu: 15 cm ou mais. Filtra contagem/lixo.
         .filter((n) => n >= 15);
     }
 
@@ -210,18 +216,20 @@ function classify(raw: RawItem): ClassifiedItem[] {
       const tituloSizes = (product.match(/\d+/g) || [])
         .map((s) => parseInt(s, 10))
         .filter((n) => n >= 15 && n <= 100);
-      // remove duplicatas mantendo ordem
       sizes = Array.from(new Set(tituloSizes));
     }
 
     if (modelo && sizes.length) {
+      // 1 tamanho + "KIT N PÇS" = N unidades iguais.
+      // Múltiplos tamanhos = 1 un de cada (kit variado).
+      const perSize = sizes.length === 1 ? kitPcs : 1;
       return sizes.map((s) => ({
         sectionKey: "trofeus" as const,
         sectionTitle: "Troféus",
         sectionEmoji: "🏆",
         variationGroup: modelo,
         itemName: `${s} cm`,
-        qty: mult,
+        qty: mult * perSize,
       }));
     }
   }
