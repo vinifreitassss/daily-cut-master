@@ -350,6 +350,27 @@ function classify(raw: RawItem): ClassifiedItem[] {
     ];
   }
 
+  // ============= MINI PAINEL MDF (6cm / 8cm) =============
+  // Ex: "Kit 50 Mini Painel 6cm Totem Cenário Display MDF Cru Redondo..."
+  // Produto chato — agrupar destacado por tamanho, somando quantidades (kit × xN).
+  if (/mini\s+painel/i.test(product)) {
+    const sizeMatch = product.match(/(\d+)\s*cm/i);
+    const kitMatch = product.match(/kit\s+(\d+)/i);
+    const size = sizeMatch ? `${sizeMatch[1]} cm` : "tam. não identificado";
+    const kit = kitMatch ? parseInt(kitMatch[1], 10) : 1;
+    return [
+      {
+        sectionKey: "mdf",
+        sectionTitle: "MDF Extra",
+        sectionEmoji: "🧱",
+        variationGroup: "Mini Painel MDF",
+        itemName: size,
+        qty: mult * (kit > 0 ? kit : 1),
+        unit: "un",
+      },
+    ];
+  }
+
   // ============= TOTENS =============
   if (/totens|totem/i.test(product)) {
     return [
@@ -364,6 +385,7 @@ function classify(raw: RawItem): ClassifiedItem[] {
       },
     ];
   }
+
 
   // Fallback: joga em "outros" usando o nome do produto como rótulo.
   // Encurta nomes muito longos para caber bem na ordem de corte impressa.
