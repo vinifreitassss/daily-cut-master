@@ -1,11 +1,12 @@
 import type { DaySheet, Section } from "@/lib/parseOrders";
+import type { PriorityOrderSheet } from "@/lib/parseShopeeOrders";
 import { getTrofeuImage } from "@/lib/trofeuImages";
 
 function Checkbox() {
   return <span className="checkbox-print" aria-hidden />;
 }
 
-function SectionBlock({ section }: { section: Section }) {
+export function SectionBlock({ section }: { section: Section }) {
   return (
     <div className="avoid-break section-block mb-4">
       <h3 className="text-base font-bold border-b border-foreground/30 pb-1 mb-2 flex items-center gap-2">
