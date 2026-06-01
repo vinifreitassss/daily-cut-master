@@ -88,3 +88,39 @@ export function DaysGrid({ children }: { children: React.ReactNode }) {
   return <div className="day-grid grid grid-cols-1 md:grid-cols-2 gap-3">{children}</div>;
 }
 
+
+export function PriorityOrderBlock({
+  order,
+  idx,
+}: {
+  order: PriorityOrderSheet;
+  idx: number;
+}) {
+  return (
+    <div className="avoid-break day-card border border-foreground/40 rounded-lg p-4 mb-4 bg-card">
+      <h2 className="text-base font-bold mb-3 flex items-center justify-between gap-2 border-b border-foreground/30 pb-2">
+        <span className="flex items-center gap-2 flex-wrap">
+          <span className="font-mono text-lg">#{idx}</span>
+          <span>📅 {order.date}</span>
+          <span className="text-xs font-normal text-muted-foreground">
+            Pedido {order.orderId}
+          </span>
+        </span>
+        {order.urgencyLabel && (
+          <span className="text-xs px-2 py-0.5 rounded bg-destructive/15 text-destructive font-semibold whitespace-nowrap">
+            ⚡ {order.urgencyLabel}
+          </span>
+        )}
+      </h2>
+      <div className="section-grid grid grid-cols-1 gap-x-6">
+        {order.sections.map((s, i) => (
+          <SectionBlock key={i} section={s} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function PriorityGrid({ children }: { children: React.ReactNode }) {
+  return <div className="day-grid grid grid-cols-1 md:grid-cols-2 gap-3">{children}</div>;
+}
