@@ -74,10 +74,16 @@ function Index() {
   const [text, setText] = useState("");
   const [submitted, setSubmitted] = useState<{ mode: Mode; text: string } | null>(null);
   const [priorityOpen, setPriorityOpen] = useState(false);
+  const [viewByPriority, setViewByPriority] = useState(false);
 
   const priorityItems = useMemo<PriorityItem[]>(() => {
     if (!submitted || submitted.mode !== "raw") return [];
     return extractPriorityList(submitted.text);
+  }, [submitted]);
+
+  const prioritySheets = useMemo<PriorityOrderSheet[]>(() => {
+    if (!submitted || submitted.mode !== "raw") return [];
+    return extractPriorityOrderSheets(submitted.text);
   }, [submitted]);
 
   const { result, unrecognized } = useMemo<{
