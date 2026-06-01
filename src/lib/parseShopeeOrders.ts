@@ -544,3 +544,92 @@ export function formatOrdersAsText(orders: OrderSummary[]): string {
   return lines.join("\n");
 }
 
+// ============= ORDEM DE PRIORIDADE (CORTE NÃO-MEDALHA/CHAVEIRO) =============
+// A ordem natural dos blocos colados da Shopee já reflete a prioridade de envio
+// (mais urgente no topo). Alguns pedidos trazem ainda "enviar em X horas" —
+// quando presente, exibimos para reforçar a urgência.
+// Medalhas e chaveiros NÃO entram aqui: já temos esse estoque cortado, a lista
+// de prioridade serve para guiar o corte dos demais itens na ordem de envio.
+
+export type PriorityItem = {
+  orderId: string;
+  date: string;
+  urgencyHours: number | null;
+  urgencyLabel: string;
+  product: string;
+  variation: string;
+  qty: number;
+  group: string;
+  sizeOrItem: string;
+};
+
+function extractUrgency(block: string): { hours: number | null; label: string } {
+  const mH = block.match(/enviar\s+em\s+(\d+)\s*h(?:oras?)?/i);
+  if (mH) {
+    const h = parseInt(mH[1], 10);
+    return { hours: h, label: `Enviar em ${h}h` };
+  }
+  const mD = block.match(/enviar\s+em\s+(\d+)\s*dias?/i);
+  if (mD) {
+    const d = parseInt(mD[1], 10);
+    return { hours: d * 24, label: `Enviar em ${d}d` };
+  }
+  if (/risco\s+de\s+envio\s+atrasad/i.test(block)) return { hours: 0, label: "Risco de atraso" };
+  if (/atrasad/i.test(block)) return { hours: -1, label: "ATRASADO" };
+  return { hours: null, label: "" };
+}
+
+export function extractPriorityList(input: string): PriorityItem[] {
+  const blocks = splitBlocks(input);
+  const out: PriorityItem[] = [];
+  for (const block of blocks) {
+    const idMatch = block.match(/ID do Pedido\s+(\S+)/i);
+    const orderId = idMatch ? idMatch[1] : "?";
+    const date = extractDate(block);
+    const urgency = extractUrgency(block);
+    const rawItems = extractRawItems(block);
+    for (const raw of rawItems) {
+      const classified = classify(raw);
+      for (const ci of classified) {
+        if (ci.sectionKey === "medalhas") continue;
+        if (/chaveir/i.test(ci.variationGroup)) continue;
+        if (/chaveir/i.test(raw.product)) continue;
+        out.push({
+          orderId,
+          date,
+          urgencyHours: urgency.hours,
+          urgencyLabel: urgency.label,
+          product: raw.product,
+          variation: raw.variation,
+          qty: ci.qty,
+          group: ci.variationGroup || ci.sectionTitle,
+          sizeOrItem: ci.itemName,
+        });
+      }
+    }
+  }
+  return out;
+}
+
+export function formatPriorityAsText(items: PriorityItem[]): string {
+  const lines: string[] = [];
+  lines.push(`Ordem de Prioridade — Corte (sem medalhas/chaveiros)`);
+  lines.push(`Gerado em ${new Date().toLocaleString("pt-BR")} — ${items.length} item(s)`);
+  lines.push("=".repeat(70));
+  lines.push("");
+  let lastOrder = "";
+  let orderIdx = 0;
+  for (const it of items) {
+    if (it.orderId !== lastOrder) {
+      if (lastOrder) lines.push("");
+      orderIdx++;
+      const urg = it.urgencyLabel ? `  ⚡ ${it.urgencyLabel}` : "";
+      lines.push(`#${orderIdx}  Pedido ${it.orderId}  |  Envio até ${it.date}${urg}`);
+      lastOrder = it.orderId;
+    }
+    lines.push(`     • ${it.qty}x ${it.group} — ${it.sizeOrItem}`);
+  }
+  return lines.join("\n");
+}
+
+
