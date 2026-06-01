@@ -7,9 +7,17 @@ import {
   formatOrdersAsText,
   extractPriorityList,
   formatPriorityAsText,
+  extractPriorityOrderSheets,
   type PriorityItem,
+  type PriorityOrderSheet,
 } from "@/lib/parseShopeeOrders";
-import { ConsolidatedSheet, DayBlock, DaysGrid } from "@/components/OrderSheet";
+import {
+  ConsolidatedSheet,
+  DayBlock,
+  DaysGrid,
+  PriorityOrderBlock,
+  PriorityGrid,
+} from "@/components/OrderSheet";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
