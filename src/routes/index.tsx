@@ -220,10 +220,14 @@ function Index() {
           <div className="print-area">
             <div className="mb-4 flex items-end justify-between border-b-2 border-foreground pb-3">
               <div>
-                <h1 className="text-2xl font-extrabold tracking-tight">Ordem de Corte</h1>
+                <h1 className="text-2xl font-extrabold tracking-tight">
+                  {viewByPriority ? "Ordem de Corte — Por Prioridade" : "Ordem de Corte"}
+                </h1>
                 <p className="text-xs text-muted-foreground">
-                  Gerado em {new Date().toLocaleDateString("pt-BR")} — {result.days.length}{" "}
-                  dia(s)
+                  Gerado em {new Date().toLocaleDateString("pt-BR")} —{" "}
+                  {viewByPriority
+                    ? `${prioritySheets.length} pedido(s) — mais urgentes primeiro`
+                    : `${result.days.length} dia(s)`}
                 </p>
               </div>
               <div className="text-right text-xs text-muted-foreground">
@@ -238,18 +242,34 @@ function Index() {
               </div>
             )}
 
-            {result.consolidated && <ConsolidatedSheet sections={result.consolidated} />}
-
-            {result.days.length > 0 && (
+            {viewByPriority ? (
               <>
-                <h2 className="text-base font-bold uppercase tracking-widest text-muted-foreground mt-6 mb-3">
-                  Detalhamento Diário
-                </h2>
-                <DaysGrid>
-                  {result.days.map((d, i) => (
-                    <DayBlock key={i} day={d} />
+                <div className="no-print mb-3 rounded-md border border-foreground/20 bg-muted/40 p-3 text-xs text-muted-foreground">
+                  Pedidos na ordem natural de envio da Shopee (mais urgentes no topo).
+                  Medalhas e chaveiros estão omitidos — já estão em estoque cortado.
+                </div>
+                <PriorityGrid>
+                  {prioritySheets.map((o, i) => (
+                    <PriorityOrderBlock key={o.orderId + i} order={o} idx={i + 1} />
                   ))}
-                </DaysGrid>
+                </PriorityGrid>
+              </>
+            ) : (
+              <>
+                {result.consolidated && <ConsolidatedSheet sections={result.consolidated} />}
+
+                {result.days.length > 0 && (
+                  <>
+                    <h2 className="text-base font-bold uppercase tracking-widest text-muted-foreground mt-6 mb-3">
+                      Detalhamento Diário
+                    </h2>
+                    <DaysGrid>
+                      {result.days.map((d, i) => (
+                        <DayBlock key={i} day={d} />
+                      ))}
+                    </DaysGrid>
+                  </>
+                )}
               </>
             )}
           </div>
