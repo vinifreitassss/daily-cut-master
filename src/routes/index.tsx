@@ -155,11 +155,19 @@ function Index() {
             </Button>
             <Button
               size="sm"
-              variant="secondary"
+              variant={viewByPriority ? "default" : "secondary"}
+              onClick={() => setViewByPriority((v) => !v)}
+              disabled={!result || !submitted || submitted.mode !== "raw" || prioritySheets.length === 0}
+            >
+              {viewByPriority ? "📅 Ver por data" : "🔥 Corte por prioridade"}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
               onClick={() => setPriorityOpen(true)}
               disabled={!result || !submitted || submitted.mode !== "raw" || priorityItems.length === 0}
             >
-              🔥 Ordem de prioridade
+              📝 Resumo prioridade (.txt)
             </Button>
           </div>
         </div>
