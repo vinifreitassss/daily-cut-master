@@ -139,6 +139,14 @@ function Index() {
             >
               📄 Lista de pedidos (.txt)
             </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => setPriorityOpen(true)}
+              disabled={!result || !submitted || submitted.mode !== "raw" || priorityItems.length === 0}
+            >
+              🔥 Ordem de prioridade
+            </Button>
           </div>
         </div>
       </header>
