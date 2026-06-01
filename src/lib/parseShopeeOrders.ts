@@ -1,5 +1,13 @@
 import type { DaySheet, Section, Variation, Item } from "./parseOrders";
 
+export type PriorityOrderSheet = {
+  orderId: string;
+  date: string;
+  urgencyLabel: string;
+  urgencyHours: number | null;
+  sections: Section[];
+};
+
 /**
  * Parser para a lista bruta da Shopee (texto colado direto da plataforma).
  * Estratégia:
