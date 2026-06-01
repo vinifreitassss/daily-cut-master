@@ -233,6 +233,94 @@ function Index() {
           </div>
         )}
       </main>
+
+      <Dialog open={priorityOpen} onOpenChange={setPriorityOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>🔥 Ordem de prioridade — Corte</DialogTitle>
+            <DialogDescription>
+              Pedidos na ordem natural de envio (mais urgentes primeiro). Medalhas e
+              chaveiros foram omitidos — já estão em estoque cortado.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-2 pb-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                const txt = formatPriorityAsText(priorityItems);
+                const blob = new Blob([txt], { type: "text/plain;charset=utf-8" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `prioridade-${new Date().toISOString().slice(0, 10)}.txt`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+              }}
+            >
+              📄 Baixar .txt
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                navigator.clipboard.writeText(formatPriorityAsText(priorityItems));
+              }}
+            >
+              📋 Copiar
+            </Button>
+          </div>
+          <div className="overflow-auto border rounded-md">
+            <ol className="divide-y">
+              {(() => {
+                const rows: React.ReactNode[] = [];
+                let lastOrder = "";
+                let idx = 0;
+                priorityItems.forEach((it, i) => {
+                  if (it.orderId !== lastOrder) {
+                    idx++;
+                    lastOrder = it.orderId;
+                    rows.push(
+                      <li key={`h-${i}`} className="bg-muted/60 px-3 py-2 flex items-center justify-between gap-2">
+                        <span className="font-semibold text-sm">
+                          #{idx} · Pedido {it.orderId}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          Envio até {it.date}
+                          {it.urgencyLabel && (
+                            <span className="ml-2 inline-block px-2 py-0.5 rounded bg-destructive/15 text-destructive font-semibold">
+                              ⚡ {it.urgencyLabel}
+                            </span>
+                          )}
+                        </span>
+                      </li>
+                    );
+                  }
+                  rows.push(
+                    <li key={`i-${i}`} className="px-5 py-1.5 text-sm flex items-center gap-2">
+                      <span className="font-mono font-semibold w-10 text-right">{it.qty}x</span>
+                      <span className="flex-1">
+                        <span className="font-medium">{it.group}</span>
+                        <span className="text-muted-foreground"> — {it.sizeOrItem}</span>
+                      </span>
+                    </li>
+                  );
+                });
+                if (!rows.length) {
+                  rows.push(
+                    <li key="empty" className="p-4 text-sm text-muted-foreground text-center">
+                      Nenhum item de prioridade (apenas medalhas/chaveiros nos pedidos).
+                    </li>
+                  );
+                }
+                return rows;
+              })()}
+            </ol>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
