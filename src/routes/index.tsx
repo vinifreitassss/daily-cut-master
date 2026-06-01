@@ -7,9 +7,17 @@ import {
   formatOrdersAsText,
   extractPriorityList,
   formatPriorityAsText,
+  extractPriorityOrderSheets,
   type PriorityItem,
+  type PriorityOrderSheet,
 } from "@/lib/parseShopeeOrders";
-import { ConsolidatedSheet, DayBlock, DaysGrid } from "@/components/OrderSheet";
+import {
+  ConsolidatedSheet,
+  DayBlock,
+  DaysGrid,
+  PriorityOrderBlock,
+  PriorityGrid,
+} from "@/components/OrderSheet";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -66,10 +74,16 @@ function Index() {
   const [text, setText] = useState("");
   const [submitted, setSubmitted] = useState<{ mode: Mode; text: string } | null>(null);
   const [priorityOpen, setPriorityOpen] = useState(false);
+  const [viewByPriority, setViewByPriority] = useState(false);
 
   const priorityItems = useMemo<PriorityItem[]>(() => {
     if (!submitted || submitted.mode !== "raw") return [];
     return extractPriorityList(submitted.text);
+  }, [submitted]);
+
+  const prioritySheets = useMemo<PriorityOrderSheet[]>(() => {
+    if (!submitted || submitted.mode !== "raw") return [];
+    return extractPriorityOrderSheets(submitted.text);
   }, [submitted]);
 
   const { result, unrecognized } = useMemo<{
@@ -141,11 +155,19 @@ function Index() {
             </Button>
             <Button
               size="sm"
-              variant="secondary"
+              variant={viewByPriority ? "default" : "secondary"}
+              onClick={() => setViewByPriority((v) => !v)}
+              disabled={!result || !submitted || submitted.mode !== "raw" || prioritySheets.length === 0}
+            >
+              {viewByPriority ? "📅 Ver por data" : "🔥 Corte por prioridade"}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
               onClick={() => setPriorityOpen(true)}
               disabled={!result || !submitted || submitted.mode !== "raw" || priorityItems.length === 0}
             >
-              🔥 Ordem de prioridade
+              📝 Resumo prioridade (.txt)
             </Button>
           </div>
         </div>
@@ -198,10 +220,14 @@ function Index() {
           <div className="print-area">
             <div className="mb-4 flex items-end justify-between border-b-2 border-foreground pb-3">
               <div>
-                <h1 className="text-2xl font-extrabold tracking-tight">Ordem de Corte</h1>
+                <h1 className="text-2xl font-extrabold tracking-tight">
+                  {viewByPriority ? "Ordem de Corte — Por Prioridade" : "Ordem de Corte"}
+                </h1>
                 <p className="text-xs text-muted-foreground">
-                  Gerado em {new Date().toLocaleDateString("pt-BR")} — {result.days.length}{" "}
-                  dia(s)
+                  Gerado em {new Date().toLocaleDateString("pt-BR")} —{" "}
+                  {viewByPriority
+                    ? `${prioritySheets.length} pedido(s) — mais urgentes primeiro`
+                    : `${result.days.length} dia(s)`}
                 </p>
               </div>
               <div className="text-right text-xs text-muted-foreground">
@@ -216,18 +242,34 @@ function Index() {
               </div>
             )}
 
-            {result.consolidated && <ConsolidatedSheet sections={result.consolidated} />}
-
-            {result.days.length > 0 && (
+            {viewByPriority ? (
               <>
-                <h2 className="text-base font-bold uppercase tracking-widest text-muted-foreground mt-6 mb-3">
-                  Detalhamento Diário
-                </h2>
-                <DaysGrid>
-                  {result.days.map((d, i) => (
-                    <DayBlock key={i} day={d} />
+                <div className="no-print mb-3 rounded-md border border-foreground/20 bg-muted/40 p-3 text-xs text-muted-foreground">
+                  Pedidos na ordem natural de envio da Shopee (mais urgentes no topo).
+                  Medalhas e chaveiros estão omitidos — já estão em estoque cortado.
+                </div>
+                <PriorityGrid>
+                  {prioritySheets.map((o, i) => (
+                    <PriorityOrderBlock key={o.orderId + i} order={o} idx={i + 1} />
                   ))}
-                </DaysGrid>
+                </PriorityGrid>
+              </>
+            ) : (
+              <>
+                {result.consolidated && <ConsolidatedSheet sections={result.consolidated} />}
+
+                {result.days.length > 0 && (
+                  <>
+                    <h2 className="text-base font-bold uppercase tracking-widest text-muted-foreground mt-6 mb-3">
+                      Detalhamento Diário
+                    </h2>
+                    <DaysGrid>
+                      {result.days.map((d, i) => (
+                        <DayBlock key={i} day={d} />
+                      ))}
+                    </DaysGrid>
+                  </>
+                )}
               </>
             )}
           </div>

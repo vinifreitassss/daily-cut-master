@@ -1,5 +1,13 @@
 import type { DaySheet, Section, Variation, Item } from "./parseOrders";
 
+export type PriorityOrderSheet = {
+  orderId: string;
+  date: string;
+  urgencyLabel: string;
+  urgencyHours: number | null;
+  sections: Section[];
+};
+
 /**
  * Parser para a lista bruta da Shopee (texto colado direto da plataforma).
  * Estratégia:
@@ -633,3 +641,68 @@ export function formatPriorityAsText(items: PriorityItem[]): string {
 }
 
 
+
+/** Gera "fichas de corte por pedido", na ordem natural da Shopee (mais
+ * urgentes primeiro). Cada ficha tem as mesmas seções/agrupamentos da
+ * lista de corte normal — só que escopadas a UM pedido. Medalhas e
+ * chaveiros são omitidos (já cortados em estoque). */
+export function extractPriorityOrderSheets(input: string): PriorityOrderSheet[] {
+  const blocks = splitBlocks(input);
+  const out: PriorityOrderSheet[] = [];
+  const sectionOrder: Section["key"][] = ["trofeus", "medalhas", "mdf", "outros"];
+
+  for (const block of blocks) {
+    const idMatch = block.match(/ID do Pedido\s+(\S+)/i);
+    const orderId = idMatch ? idMatch[1] : "?";
+    const date = extractDate(block);
+    const urgency = extractUrgency(block);
+    const rawItems = extractRawItems(block);
+
+    const sectionsMap = new Map<Section["key"], Section>();
+    for (const raw of rawItems) {
+      if (/chaveir/i.test(raw.product)) continue;
+      const classified = classify(raw);
+      for (const ci of classified) {
+        if (ci.sectionKey === "medalhas") continue;
+        if (/chaveir/i.test(ci.variationGroup)) continue;
+        let sec = sectionsMap.get(ci.sectionKey);
+        if (!sec) {
+          sec = {
+            key: ci.sectionKey,
+            title: ci.sectionTitle,
+            emoji: ci.sectionEmoji,
+            groups: [],
+          };
+          sectionsMap.set(ci.sectionKey, sec);
+        }
+        let group: Variation | undefined = sec.groups.find(
+          (g) => g.variation === ci.variationGroup
+        );
+        if (!group) {
+          group = { variation: ci.variationGroup, items: [] };
+          sec.groups.push(group);
+        }
+        const existing = group.items.find(
+          (it) => it.name === ci.itemName && (it.unit || "") === (ci.unit || "")
+        );
+        if (existing) existing.qty += ci.qty;
+        else {
+          const item: Item = { name: ci.itemName, qty: ci.qty, unit: ci.unit };
+          group.items.push(item);
+        }
+      }
+    }
+    if (sectionsMap.size === 0) continue;
+    const sections = Array.from(sectionsMap.values()).sort(
+      (a, b) => sectionOrder.indexOf(a.key) - sectionOrder.indexOf(b.key)
+    );
+    out.push({
+      orderId,
+      date,
+      urgencyLabel: urgency.label,
+      urgencyHours: urgency.hours,
+      sections,
+    });
+  }
+  return out;
+}
