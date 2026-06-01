@@ -65,6 +65,12 @@ function Index() {
   const [mode, setMode] = useState<Mode>("structured");
   const [text, setText] = useState("");
   const [submitted, setSubmitted] = useState<{ mode: Mode; text: string } | null>(null);
+  const [priorityOpen, setPriorityOpen] = useState(false);
+
+  const priorityItems = useMemo<PriorityItem[]>(() => {
+    if (!submitted || submitted.mode !== "raw") return [];
+    return extractPriorityList(submitted.text);
+  }, [submitted]);
 
   const { result, unrecognized } = useMemo<{
     result: ParseResult | null;
