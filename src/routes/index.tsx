@@ -8,9 +8,12 @@ import {
   extractPriorityList,
   formatPriorityAsText,
   extractPriorityOrderSheets,
+  extractPrintList,
   type PriorityItem,
   type PriorityOrderSheet,
+  type PrintDay,
 } from "@/lib/parseShopeeOrders";
+import { PrintSheet } from "@/components/PrintSheet";
 import {
   ConsolidatedSheet,
   DayBlock,
@@ -74,6 +77,7 @@ function Index() {
   const [text, setText] = useState("");
   const [submitted, setSubmitted] = useState<{ mode: Mode; text: string } | null>(null);
   const [priorityOpen, setPriorityOpen] = useState(false);
+  const [printOpen, setPrintOpen] = useState(false);
   const [viewByPriority, setViewByPriority] = useState(false);
 
   const priorityItems = useMemo<PriorityItem[]>(() => {
@@ -84,6 +88,11 @@ function Index() {
   const prioritySheets = useMemo<PriorityOrderSheet[]>(() => {
     if (!submitted || submitted.mode !== "raw") return [];
     return extractPriorityOrderSheets(submitted.text);
+  }, [submitted]);
+
+  const printDays = useMemo<PrintDay[]>(() => {
+    if (!submitted || submitted.mode !== "raw") return [];
+    return extractPrintList(submitted.text);
   }, [submitted]);
 
   const { result, unrecognized } = useMemo<{
@@ -168,6 +177,14 @@ function Index() {
               disabled={!result || !submitted || submitted.mode !== "raw" || priorityItems.length === 0}
             >
               📝 Resumo prioridade (.txt)
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => setPrintOpen(true)}
+              disabled={!result || !submitted || submitted.mode !== "raw" || printDays.length === 0}
+            >
+              🖨️ Lista de impressão
             </Button>
           </div>
         </div>
@@ -361,6 +378,19 @@ function Index() {
               })()}
             </ol>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={printOpen} onOpenChange={setPrintOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>🖨️ Lista de Impressão — Personalizados</DialogTitle>
+            <DialogDescription>
+              Itens personalizados agrupados por data de envio. Marque cada item após
+              imprimir — o progresso fica salvo neste navegador.
+            </DialogDescription>
+          </DialogHeader>
+          <PrintSheet days={printDays} />
         </DialogContent>
       </Dialog>
     </div>

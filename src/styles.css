@@ -180,3 +180,22 @@
   flex-shrink: 0;
 }
 
+/* Folha de impressão da lista de personalizados — escondida na tela */
+.print-sheet-only { display: none; }
+
+@media print {
+  body.print-sheet-mode .print-area,
+  body.print-sheet-mode .no-print {
+    display: none !important;
+  }
+  body.print-sheet-mode .print-sheet-only {
+    display: block !important;
+    position: fixed;
+    inset: 0;
+    background: white;
+    color: black;
+    padding: 8mm;
+    z-index: 99999;
+  }
+}
+

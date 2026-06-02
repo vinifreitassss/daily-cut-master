@@ -706,3 +706,70 @@ export function extractPriorityOrderSheets(input: string): PriorityOrderSheet[] 
   }
   return out;
 }
+
+// ============= LISTA DE IMPRESSÃO (PERSONALIZADOS) =============
+// Itens cujo título contém "personalizado/personalizada" precisam ser impressos
+// com o nome/arte do cliente. Agrupados por data de envio (postar até).
+
+export type PrintItem = {
+  key: string; // estável: orderId::idx
+  orderId: string;
+  product: string;
+  variation: string;
+  qty: number; // multiplicador do pedido (xN); para kits, exibimos kit total separado
+};
+
+export type PrintOrder = {
+  orderId: string;
+  urgencyLabel: string;
+  items: PrintItem[];
+};
+
+export type PrintDay = {
+  date: string;
+  orders: PrintOrder[];
+};
+
+const PERSONALIZED_RE = /personalizad[oa]/i;
+
+export function extractPrintList(input: string): PrintDay[] {
+  const blocks = splitBlocks(input);
+  const daysMap = new Map<string, PrintDay>();
+
+  for (const block of blocks) {
+    const idMatch = block.match(/ID do Pedido\s+(\S+)/i);
+    const orderId = idMatch ? idMatch[1] : "?";
+    const date = extractDate(block);
+    const urgency = extractUrgency(block);
+    const rawItems = extractRawItems(block);
+
+    const items: PrintItem[] = [];
+    rawItems.forEach((raw, i) => {
+      if (!PERSONALIZED_RE.test(raw.product)) return;
+      items.push({
+        key: `${orderId}::${i}`,
+        orderId,
+        product: raw.product,
+        variation: raw.variation,
+        qty: raw.multiplier,
+      });
+    });
+    if (!items.length) continue;
+
+    let day = daysMap.get(date);
+    if (!day) {
+      day = { date, orders: [] };
+      daysMap.set(date, day);
+    }
+    day.orders.push({ orderId, urgencyLabel: urgency.label, items });
+  }
+
+  // Ordena dias por data crescente; "Sem data" no fim.
+  return Array.from(daysMap.values()).sort((a, b) => {
+    if (a.date === "Sem data") return 1;
+    if (b.date === "Sem data") return -1;
+    const [da, ma, ya] = a.date.split("/").map((n) => parseInt(n, 10));
+    const [db, mb, yb] = b.date.split("/").map((n) => parseInt(n, 10));
+    return new Date(ya, ma - 1, da).getTime() - new Date(yb, mb - 1, db).getTime();
+  });
+}
