@@ -90,6 +90,11 @@ function Index() {
     return extractPriorityOrderSheets(submitted.text);
   }, [submitted]);
 
+  const printDays = useMemo<PrintDay[]>(() => {
+    if (!submitted || submitted.mode !== "raw") return [];
+    return extractPrintList(submitted.text);
+  }, [submitted]);
+
   const { result, unrecognized } = useMemo<{
     result: ParseResult | null;
     unrecognized: string[];
