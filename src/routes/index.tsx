@@ -178,6 +178,14 @@ function Index() {
             >
               📝 Resumo prioridade (.txt)
             </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => setPrintOpen(true)}
+              disabled={!result || !submitted || submitted.mode !== "raw" || printDays.length === 0}
+            >
+              🖨️ Lista de impressão
+            </Button>
           </div>
         </div>
       </header>
