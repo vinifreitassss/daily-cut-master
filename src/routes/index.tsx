@@ -380,6 +380,19 @@ function Index() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={printOpen} onOpenChange={setPrintOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>🖨️ Lista de Impressão — Personalizados</DialogTitle>
+            <DialogDescription>
+              Itens personalizados agrupados por data de envio. Marque cada item após
+              imprimir — o progresso fica salvo neste navegador.
+            </DialogDescription>
+          </DialogHeader>
+          <PrintSheet days={printDays} />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
