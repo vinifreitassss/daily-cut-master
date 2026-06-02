@@ -77,6 +77,7 @@ function Index() {
   const [text, setText] = useState("");
   const [submitted, setSubmitted] = useState<{ mode: Mode; text: string } | null>(null);
   const [priorityOpen, setPriorityOpen] = useState(false);
+  const [printOpen, setPrintOpen] = useState(false);
   const [viewByPriority, setViewByPriority] = useState(false);
 
   const priorityItems = useMemo<PriorityItem[]>(() => {
