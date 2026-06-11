@@ -18,6 +18,7 @@ import {
 import { getTrofeuImage } from "./lib/trofeuImages";
 
 type Tab = "corte" | "prioridade" | "impressao" | "nf" | "pedidos" | "fotos";
+type OrderAttachments = Record<string, string>;
 
 const EXAMPLE_RAW = `raianeevelinromisdosreis
 ID do Pedido 260424NHMG4NNH
@@ -44,6 +45,15 @@ function copyText(text: string) {
   navigator.clipboard?.writeText(text);
 }
 
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error ?? new Error("Falha ao ler imagem"));
+    reader.readAsDataURL(file);
+  });
+}
+
 function printPage(tab: Tab) {
   document.body.dataset.printMode = tab;
   const cleanup = () => {
@@ -55,7 +65,18 @@ function printPage(tab: Tab) {
   setTimeout(cleanup, 1200);
 }
 
+function canUseAutomaticProductImage(product: string, variation: string): boolean {
+  const text = `${product} ${variation}`.toLowerCase();
+  if (/hand\s*grip|mini\s*painel|painel|placa|ripa|chaveir|medalh/.test(text)) return false;
+  return /trof[eé]u|trof[eé]us|ta[çc]a|kit\s*12\s*trof/.test(text);
+}
+
 function productImageFor(product: string, variation: string): string | null {
+  if (!canUseAutomaticProductImage(product, variation)) return null;
+
+  if (/ta[çc]a/i.test(product) || /ta[çc]a/i.test(variation)) return getTrofeuImage("TACA MDF");
+  if (/kit\s*12\s*trof/i.test(product)) return getTrofeuImage("KIT 12 TROFEUS DECORATIVOS");
+
   const byVariation = getTrofeuImage(variation);
   if (byVariation) return byVariation;
 
@@ -65,8 +86,6 @@ function productImageFor(product: string, variation: string): string | null {
     if (img) return img;
   }
 
-  if (/ta[çc]a/i.test(product) || /ta[çc]a/i.test(variation)) return getTrofeuImage("TACA MDF");
-  if (/kit\s*12\s*trof/i.test(product)) return getTrofeuImage("KIT 12 TROFEUS DECORATIVOS");
   return null;
 }
 
@@ -74,6 +93,7 @@ export default function App() {
   const [text, setText] = useState("");
   const [submitted, setSubmitted] = useState("");
   const [tab, setTab] = useState<Tab>("corte");
+  const [orderAttachments, setOrderAttachments] = useState<OrderAttachments>({});
 
   const parsed = useMemo(() => {
     if (!submitted.trim()) {
@@ -113,6 +133,7 @@ export default function App() {
     setText("");
     setSubmitted("");
     setTab("corte");
+    setOrderAttachments({});
   };
 
   return (
@@ -197,7 +218,13 @@ export default function App() {
                   filename={`pedidos-${new Date().toISOString().slice(0, 10)}.txt`}
                 />
               )}
-              {tab === "fotos" && <PhotoBarcodeView orders={parsed.orders} />}
+              {tab === "fotos" && (
+                <PhotoBarcodeView
+                  orders={parsed.orders}
+                  attachments={orderAttachments}
+                  setAttachments={setOrderAttachments}
+                />
+              )}
             </>
           )}
         </section>
@@ -334,49 +361,94 @@ function PrintView({ days }: { days: PrintDay[] }) {
   );
 }
 
-function PhotoBarcodeView({ orders }: { orders: OrderSummary[] }) {
+function PhotoBarcodeView({
+  orders,
+  attachments,
+  setAttachments,
+}: {
+  orders: OrderSummary[];
+  attachments: OrderAttachments;
+  setAttachments: React.Dispatch<React.SetStateAction<OrderAttachments>>;
+}) {
   if (!orders.length) return <div className="empty"><h2>Nenhum pedido encontrado.</h2></div>;
+
+  const attachImage = async (orderId: string, file: File | null | undefined) => {
+    if (!file) return;
+    const dataUrl = await fileToDataUrl(file);
+    setAttachments((prev) => ({ ...prev, [orderId]: dataUrl }));
+  };
+
+  const removeImage = (orderId: string) => {
+    setAttachments((prev) => {
+      const next = { ...prev };
+      delete next[orderId];
+      return next;
+    });
+  };
 
   return (
     <div className="content printable-area photo-view">
       <div className="toolbar no-print">
         <strong>{orders.length} pedido(s)</strong>
-        <span>Mostra a foto do produto quando o modelo é reconhecido e gera código de barras do pedido.</span>
+        <span>Foto automática só para troféus/taças. A imagem anexada é por pedido e temporária.</span>
       </div>
 
       <div className="photo-grid">
-        {orders.map((order) => (
-          <section className="photo-card" key={order.orderId}>
-            <div className="photo-card-head">
-              <div>
-                <h2>Pedido {order.orderId}</h2>
-                <p>Envio até {order.date}</p>
+        {orders.map((order) => {
+          const attached = attachments[order.orderId];
+          return (
+            <section className="photo-card" key={order.orderId}>
+              <div className="photo-card-head">
+                <div>
+                  <h2>Pedido {order.orderId}</h2>
+                  <p>Envio até {order.date}</p>
+                </div>
+                <div className="barcode-box">
+                  <Barcode value={order.orderId} height={42} width={1.35} fontSize={10} />
+                </div>
               </div>
-              <div className="barcode-box">
-                <Barcode value={order.orderId} height={42} width={1.35} fontSize={10} />
-              </div>
-            </div>
 
-            <ul className="photo-items">
-              {order.items.map((item, idx) => {
-                const img = productImageFor(item.product, item.variation);
-                return (
-                  <li key={`${order.orderId}-${idx}`}>
-                    {img ? (
-                      <img src={img} alt={item.product} />
-                    ) : (
-                      <div className="missing-img">sem foto</div>
-                    )}
-                    <div>
-                      <strong>{item.qty}x</strong> {item.product}
-                      {item.variation && <span> — {item.variation}</span>}
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
-        ))}
+              <div className="attached-photo-block">
+                <div className="attached-photo">
+                  {attached ? <img src={attached} alt={`Imagem do pedido ${order.orderId}`} /> : <span>imagem do pedido</span>}
+                </div>
+                <div className="attached-actions no-print">
+                  <label className="btn small-file-btn">
+                    {attached ? "Trocar imagem" : "Anexar imagem"}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        attachImage(order.orderId, e.target.files?.[0]);
+                        e.currentTarget.value = "";
+                      }}
+                    />
+                  </label>
+                  {attached && <button className="btn ghost" onClick={() => removeImage(order.orderId)}>Remover</button>}
+                </div>
+              </div>
+
+              <ul className="photo-items">
+                {order.items.map((item, idx) => {
+                  const img = productImageFor(item.product, item.variation);
+                  return (
+                    <li key={`${order.orderId}-${idx}`}>
+                      {img ? (
+                        <img src={img} alt={item.product} />
+                      ) : (
+                        <div className="missing-img">sem foto</div>
+                      )}
+                      <div>
+                        <strong>{item.qty}x</strong> {item.product}
+                        {item.variation && <span> — {item.variation}</span>}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          );
+        })}
       </div>
     </div>
   );
