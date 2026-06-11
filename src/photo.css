@@ -58,6 +58,16 @@
   border-radius: 12px;
   padding: 8px;
   margin-bottom: 10px;
+  outline: none;
+}
+
+.attached-photo-block:focus {
+  border-color: #315da8;
+  box-shadow: 0 0 0 3px rgba(49, 93, 168, .14);
+}
+
+.attached-photo-block.has-image {
+  background: #f6fff8;
 }
 
 .attached-photo {
@@ -73,6 +83,7 @@
   color: #8a96a8;
   font-size: 11px;
   text-align: center;
+  padding: 5px;
 }
 
 .attached-photo img {
@@ -101,6 +112,20 @@
   inset: 0;
   opacity: 0;
   cursor: pointer;
+}
+
+.image-disabled-note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px dashed #c9d3e2;
+  background: #f6f8fb;
+  border-radius: 12px;
+  padding: 10px;
+  margin-bottom: 10px;
+  color: #6b778c;
+  font-size: 13px;
 }
 
 .photo-items {
@@ -146,6 +171,68 @@
 
 .photo-items span {
   color: #6b778c;
+}
+
+.priority-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.priority-section {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 10px;
+  background: #fff;
+  break-inside: avoid;
+}
+
+.priority-section h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+}
+
+.priority-group + .priority-group {
+  margin-top: 9px;
+}
+
+.priority-group h4 {
+  margin: 0 0 5px;
+  font-size: 13px;
+  color: #315da8;
+}
+
+.priority-row {
+  display: grid;
+  grid-template-columns: 50px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  border-bottom: 1px dashed #d9e0ea;
+  padding: 5px 0;
+  font-size: 13px;
+}
+
+.priority-row:last-child {
+  border-bottom: 0;
+}
+
+.priority-thumb {
+  width: 50px;
+  height: 50px;
+  border: 1px solid #d9e0ea;
+  border-radius: 10px;
+  background: #fff;
+  object-fit: contain;
+}
+
+.priority-thumb.missing-img {
+  width: 50px;
+  height: 50px;
+  font-size: 10px;
+}
+
+.priority-row strong {
+  white-space: nowrap;
 }
 
 @media print {
@@ -203,5 +290,30 @@
     border: 0;
     padding: 0;
     max-width: 190px;
+  }
+
+  .priority-section {
+    border: 1px solid #999;
+    border-radius: 0;
+    padding: 6px;
+  }
+
+  .priority-section h3,
+  .priority-group h4 {
+    font-size: 9pt;
+  }
+
+  .priority-row {
+    grid-template-columns: 40px 1fr auto;
+    gap: 6px;
+    font-size: 8.5pt;
+    padding: 3px 0;
+  }
+
+  .priority-thumb,
+  .priority-thumb.missing-img {
+    width: 40px;
+    height: 40px;
+    border-radius: 0;
   }
 }
