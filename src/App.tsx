@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Barcode } from "./components/Barcode";
 import {
   buildConsolidated,
   type Section,
@@ -14,8 +15,9 @@ import {
   type PrintDay,
   type PriorityOrderSheet,
 } from "./lib/parseShopeeOrders";
+import { getTrofeuImage } from "./lib/trofeuImages";
 
-type Tab = "corte" | "prioridade" | "impressao" | "nf" | "pedidos";
+type Tab = "corte" | "prioridade" | "impressao" | "nf" | "pedidos" | "fotos";
 
 const EXAMPLE_RAW = `raianeevelinromisdosreis
 ID do Pedido 260424NHMG4NNH
@@ -51,6 +53,21 @@ function printPage(tab: Tab) {
   window.addEventListener("afterprint", cleanup);
   window.print();
   setTimeout(cleanup, 1200);
+}
+
+function productImageFor(product: string, variation: string): string | null {
+  const byVariation = getTrofeuImage(variation);
+  if (byVariation) return byVariation;
+
+  const modelMatch = `${variation} ${product}`.match(/TFA\s*\d{3}|TA\s*\d{3}|TFA\d{3}|TA\d{3}/i);
+  if (modelMatch) {
+    const img = getTrofeuImage(modelMatch[0].replace(/\s+/g, ""));
+    if (img) return img;
+  }
+
+  if (/ta[çc]a/i.test(product) || /ta[çc]a/i.test(variation)) return getTrofeuImage("TACA MDF");
+  if (/kit\s*12\s*trof/i.test(product)) return getTrofeuImage("KIT 12 TROFEUS DECORATIVOS");
+  return null;
 }
 
 export default function App() {
@@ -148,6 +165,7 @@ export default function App() {
                   <TabButton active={tab === "impressao"} onClick={() => setTab("impressao")}>Impressão</TabButton>
                   <TabButton active={tab === "nf"} onClick={() => setTab("nf")}>NFs</TabButton>
                   <TabButton active={tab === "pedidos"} onClick={() => setTab("pedidos")}>Pedidos</TabButton>
+                  <TabButton active={tab === "fotos"} onClick={() => setTab("fotos")}>Fotos/Códigos</TabButton>
                 </div>
               </div>
 
@@ -179,6 +197,7 @@ export default function App() {
                   filename={`pedidos-${new Date().toISOString().slice(0, 10)}.txt`}
                 />
               )}
+              {tab === "fotos" && <PhotoBarcodeView orders={parsed.orders} />}
             </>
           )}
         </section>
@@ -194,6 +213,7 @@ function printTitle(tab: Tab) {
     impressao: "Lista de Impressão",
     nf: "Lista de NFs",
     pedidos: "Lista de Pedidos",
+    fotos: "Fotos dos Produtos e Códigos de Barras",
   };
   return titles[tab];
 }
@@ -310,6 +330,54 @@ function PrintView({ days }: { days: PrintDay[] }) {
           ))}
         </section>
       ))}
+    </div>
+  );
+}
+
+function PhotoBarcodeView({ orders }: { orders: OrderSummary[] }) {
+  if (!orders.length) return <div className="empty"><h2>Nenhum pedido encontrado.</h2></div>;
+
+  return (
+    <div className="content printable-area photo-view">
+      <div className="toolbar no-print">
+        <strong>{orders.length} pedido(s)</strong>
+        <span>Mostra a foto do produto quando o modelo é reconhecido e gera código de barras do pedido.</span>
+      </div>
+
+      <div className="photo-grid">
+        {orders.map((order) => (
+          <section className="photo-card" key={order.orderId}>
+            <div className="photo-card-head">
+              <div>
+                <h2>Pedido {order.orderId}</h2>
+                <p>Envio até {order.date}</p>
+              </div>
+              <div className="barcode-box">
+                <Barcode value={order.orderId} height={42} width={1.35} fontSize={10} />
+              </div>
+            </div>
+
+            <ul className="photo-items">
+              {order.items.map((item, idx) => {
+                const img = productImageFor(item.product, item.variation);
+                return (
+                  <li key={`${order.orderId}-${idx}`}>
+                    {img ? (
+                      <img src={img} alt={item.product} />
+                    ) : (
+                      <div className="missing-img">sem foto</div>
+                    )}
+                    <div>
+                      <strong>{item.qty}x</strong> {item.product}
+                      {item.variation && <span> — {item.variation}</span>}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        ))}
+      </div>
     </div>
   );
 }
