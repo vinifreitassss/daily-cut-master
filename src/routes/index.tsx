@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { parseOrders, buildConsolidated, type ParseResult } from "@/lib/parseOrders";
+import { buildConsolidated, type ParseResult } from "@/lib/parseOrders";
 import {
   parseShopeeOrders,
   extractShopeeOrdersList,
@@ -12,8 +12,11 @@ import {
   type PriorityItem,
   type PriorityOrderSheet,
   type PrintDay,
+  type OrderSummary,
 } from "@/lib/parseShopeeOrders";
 import { PrintSheet } from "@/components/PrintSheet";
+import { NfList } from "@/components/NfList";
+import { OrderPhotoList } from "@/components/OrderPhotoList";
 import {
   ConsolidatedSheet,
   DayBlock,
@@ -23,7 +26,6 @@ import {
 } from "@/components/OrderSheet";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -40,26 +42,11 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Cole sua lista de pedidos e gere uma ordem de corte organizada para impressão.",
+          "Cole sua lista de pedidos da Shopee e gere ordem de corte, impressão e NFs.",
       },
     ],
   }),
 });
-
-const EXAMPLE_STRUCTURED = `📅 06/05/2026
-
-🏆 Troféus
-TFA117
-25 cm → 1
-21 cm → 1
-18 cm → 1
-
-Taça MDF
-30 cm → 3
-50 cm → 3
-
-🏅 Medalhas
-5 cm com fita (kit 30) → 120 un`;
 
 const EXAMPLE_RAW = `raianeevelinromisdosreis
 ID do Pedido 260424NHMG4NNH
@@ -70,84 +57,78 @@ x2
 R$139,25
 Por favor, envie o pedido antes de 06/05/2026 para evitar o cancelamento automático.`;
 
-type Mode = "structured" | "raw";
-
 function Index() {
-  const [mode, setMode] = useState<Mode>("structured");
   const [text, setText] = useState("");
-  const [submitted, setSubmitted] = useState<{ mode: Mode; text: string } | null>(null);
+  const [submitted, setSubmitted] = useState<string | null>(null);
   const [priorityOpen, setPriorityOpen] = useState(false);
   const [printOpen, setPrintOpen] = useState(false);
+  const [nfOpen, setNfOpen] = useState(false);
+  const [photoOpen, setPhotoOpen] = useState(false);
   const [viewByPriority, setViewByPriority] = useState(false);
 
-  const priorityItems = useMemo<PriorityItem[]>(() => {
-    if (!submitted || submitted.mode !== "raw") return [];
-    return extractPriorityList(submitted.text);
-  }, [submitted]);
+  const priorityItems = useMemo<PriorityItem[]>(
+    () => (submitted ? extractPriorityList(submitted) : []),
+    [submitted]
+  );
 
-  const prioritySheets = useMemo<PriorityOrderSheet[]>(() => {
-    if (!submitted || submitted.mode !== "raw") return [];
-    return extractPriorityOrderSheets(submitted.text);
-  }, [submitted]);
+  const prioritySheets = useMemo<PriorityOrderSheet[]>(
+    () => (submitted ? extractPriorityOrderSheets(submitted) : []),
+    [submitted]
+  );
 
-  const printDays = useMemo<PrintDay[]>(() => {
-    if (!submitted || submitted.mode !== "raw") return [];
-    return extractPrintList(submitted.text);
-  }, [submitted]);
+  const printDays = useMemo<PrintDay[]>(
+    () => (submitted ? extractPrintList(submitted) : []),
+    [submitted]
+  );
+
+  const ordersList = useMemo<OrderSummary[]>(
+    () => (submitted ? extractShopeeOrdersList(submitted) : []),
+    [submitted]
+  );
+
+  const orderIds = useMemo(() => ordersList.map((o) => o.orderId), [ordersList]);
 
   const { result, unrecognized } = useMemo<{
     result: ParseResult | null;
     unrecognized: string[];
   }>(() => {
     if (!submitted) return { result: null, unrecognized: [] };
-    if (submitted.mode === "structured") {
-      return { result: parseOrders(submitted.text), unrecognized: [] };
-    }
-    const r = parseShopeeOrders(submitted.text);
+    const r = parseShopeeOrders(submitted);
     return {
       result: { days: r.days, consolidated: buildConsolidated(r.days) },
       unrecognized: r.unrecognized,
     };
   }, [submitted]);
 
-  const handleGenerate = () => setSubmitted({ mode, text });
+  const handleGenerate = () => setSubmitted(text);
   const handleClear = () => {
     setText("");
     setSubmitted(null);
   };
 
-  const placeholder = mode === "structured" ? EXAMPLE_STRUCTURED : EXAMPLE_RAW;
-  const example = mode === "structured" ? EXAMPLE_STRUCTURED : EXAMPLE_RAW;
-
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="no-print border-b border-foreground/15 bg-card/80 backdrop-blur sticky top-0 z-10">
-        <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between gap-4">
+        <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between gap-4 flex-wrap">
           <div>
             <h1 className="text-xl font-extrabold tracking-tight">📋 Ordem de Corte</h1>
-            <p className="text-xs text-muted-foreground">Cole a lista, gere e imprima</p>
+            <p className="text-xs text-muted-foreground">Cole os pedidos brutos da Shopee, gere e imprima</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <Button variant="outline" size="sm" onClick={handleClear}>
               Limpar
             </Button>
             <Button size="sm" onClick={handleGenerate} disabled={!text.trim()}>
               Gerar
             </Button>
-            <Button
-              size="sm"
-              variant="default"
-              onClick={() => window.print()}
-              disabled={!result}
-            >
-              🖨 Imprimir
+            <Button size="sm" variant="default" onClick={() => window.print()} disabled={!result}>
+              🖨 Imprimir corte
             </Button>
             <Button
               size="sm"
               variant="outline"
               onClick={() => {
-                const orders = extractShopeeOrdersList(submitted!.text);
-                const txt = formatOrdersAsText(orders);
+                const txt = formatOrdersAsText(ordersList);
                 const blob = new Blob([txt], { type: "text/plain;charset=utf-8" });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement("a");
@@ -158,15 +139,15 @@ function Index() {
                 document.body.removeChild(a);
                 URL.revokeObjectURL(url);
               }}
-              disabled={!result || !submitted || submitted.mode !== "raw"}
+              disabled={!result}
             >
-              📄 Lista de pedidos (.txt)
+              📄 Lista pedidos (.txt)
             </Button>
             <Button
               size="sm"
               variant={viewByPriority ? "default" : "secondary"}
               onClick={() => setViewByPriority((v) => !v)}
-              disabled={!result || !submitted || submitted.mode !== "raw" || prioritySheets.length === 0}
+              disabled={!result || prioritySheets.length === 0}
             >
               {viewByPriority ? "📅 Ver por data" : "🔥 Corte por prioridade"}
             </Button>
@@ -174,17 +155,33 @@ function Index() {
               size="sm"
               variant="outline"
               onClick={() => setPriorityOpen(true)}
-              disabled={!result || !submitted || submitted.mode !== "raw" || priorityItems.length === 0}
+              disabled={!result || priorityItems.length === 0}
             >
-              📝 Resumo prioridade (.txt)
+              📝 Resumo prioridade
             </Button>
             <Button
               size="sm"
               variant="secondary"
               onClick={() => setPrintOpen(true)}
-              disabled={!result || !submitted || submitted.mode !== "raw" || printDays.length === 0}
+              disabled={!result || printDays.length === 0}
             >
               🖨️ Lista de impressão
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => setNfOpen(true)}
+              disabled={!result || orderIds.length === 0}
+            >
+              🧾 Lista NFs
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => setPhotoOpen(true)}
+              disabled={!result || ordersList.length === 0}
+            >
+              📷 Pedidos c/ fotos
             </Button>
           </div>
         </div>
@@ -193,29 +190,14 @@ function Index() {
       <main className="max-w-5xl mx-auto px-4 py-6">
         {!result && (
           <section className="no-print">
-            <Tabs value={mode} onValueChange={(v) => setMode(v as Mode)} className="mb-4">
-              <TabsList>
-                <TabsTrigger value="structured">📋 Lista estruturada</TabsTrigger>
-                <TabsTrigger value="raw">🛒 Pedidos brutos (Shopee)</TabsTrigger>
-              </TabsList>
-              <TabsContent value="structured">
-                <p className="text-xs text-muted-foreground mb-2">
-                  Cole o texto já organizado por <code>📅 data</code>,{" "}
-                  <code>🏆/🏅/🧱</code> e <code>tamanho → qtd</code>.
-                </p>
-              </TabsContent>
-              <TabsContent value="raw">
-                <p className="text-xs text-muted-foreground mb-2">
-                  Cole o texto cru direto da Shopee. O app extrai data, produto, variação e
-                  quantidade automaticamente.
-                </p>
-              </TabsContent>
-            </Tabs>
-
+            <p className="text-xs text-muted-foreground mb-2">
+              Cole o texto cru direto da Shopee. O app extrai data, produto, variação e
+              quantidade automaticamente.
+            </p>
             <Textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder={placeholder}
+              placeholder={EXAMPLE_RAW}
               className="min-h-[400px] font-mono text-sm"
             />
             <div className="mt-3 flex items-center gap-3">
@@ -225,7 +207,7 @@ function Index() {
               <button
                 type="button"
                 className="text-xs underline text-muted-foreground"
-                onClick={() => setText(example)}
+                onClick={() => setText(EXAMPLE_RAW)}
               >
                 Carregar exemplo
               </button>
@@ -391,6 +373,31 @@ function Index() {
             </DialogDescription>
           </DialogHeader>
           <PrintSheet days={printDays} />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={nfOpen} onOpenChange={setNfOpen}>
+        <DialogContent className="max-w-xl max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>🧾 Lista de pedidos — Emissão de NF</DialogTitle>
+            <DialogDescription>
+              Apenas os códigos dos pedidos, um por linha — pronto para gerar as notas fiscais.
+            </DialogDescription>
+          </DialogHeader>
+          <NfList orderIds={orderIds} />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={photoOpen} onOpenChange={setPhotoOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>📷 Pedidos com fotos e código de barras</DialogTitle>
+            <DialogDescription>
+              Cada pedido mostra produto, quantidade, foto do produto e código de barras.
+              Anexe uma imagem por pedido (arte de personalização) — fica salva neste navegador.
+            </DialogDescription>
+          </DialogHeader>
+          <OrderPhotoList orders={ordersList} />
         </DialogContent>
       </Dialog>
     </div>
