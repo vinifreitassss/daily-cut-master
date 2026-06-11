@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import type { ClipboardEvent, Dispatch, ReactNode, SetStateAction } from "react";
 import { Barcode } from "./components/Barcode";
 import {
   buildConsolidated,
@@ -19,6 +20,7 @@ import { getTrofeuImage } from "./lib/trofeuImages";
 
 type Tab = "corte" | "prioridade" | "impressao" | "nf" | "pedidos" | "fotos";
 type OrderAttachments = Record<string, string>;
+type DisabledImageOrders = Record<string, boolean>;
 
 const EXAMPLE_RAW = `raianeevelinromisdosreis
 ID do Pedido 260424NHMG4NNH
@@ -94,6 +96,7 @@ export default function App() {
   const [submitted, setSubmitted] = useState("");
   const [tab, setTab] = useState<Tab>("corte");
   const [orderAttachments, setOrderAttachments] = useState<OrderAttachments>({});
+  const [disabledImageOrders, setDisabledImageOrders] = useState<DisabledImageOrders>({});
 
   const parsed = useMemo(() => {
     if (!submitted.trim()) {
@@ -134,6 +137,7 @@ export default function App() {
     setSubmitted("");
     setTab("corte");
     setOrderAttachments({});
+    setDisabledImageOrders({});
   };
 
   return (
@@ -223,6 +227,8 @@ export default function App() {
                   orders={parsed.orders}
                   attachments={orderAttachments}
                   setAttachments={setOrderAttachments}
+                  disabledImageOrders={disabledImageOrders}
+                  setDisabledImageOrders={setDisabledImageOrders}
                 />
               )}
             </>
@@ -254,7 +260,7 @@ function EmptyState() {
   );
 }
 
-function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
   return <button className={active ? "tab active" : "tab"} onClick={onClick}>{children}</button>;
 }
 
@@ -365,10 +371,14 @@ function PhotoBarcodeView({
   orders,
   attachments,
   setAttachments,
+  disabledImageOrders,
+  setDisabledImageOrders,
 }: {
   orders: OrderSummary[];
   attachments: OrderAttachments;
-  setAttachments: React.Dispatch<React.SetStateAction<OrderAttachments>>;
+  setAttachments: Dispatch<SetStateAction<OrderAttachments>>;
+  disabledImageOrders: DisabledImageOrders;
+  setDisabledImageOrders: Dispatch<SetStateAction<DisabledImageOrders>>;
 }) {
   if (!orders.length) return <div className="empty"><h2>Nenhum pedido encontrado.</h2></div>;
 
@@ -376,6 +386,19 @@ function PhotoBarcodeView({
     if (!file) return;
     const dataUrl = await fileToDataUrl(file);
     setAttachments((prev) => ({ ...prev, [orderId]: dataUrl }));
+    setDisabledImageOrders((prev) => {
+      const next = { ...prev };
+      delete next[orderId];
+      return next;
+    });
+  };
+
+  const pasteImage = (orderId: string, event: ClipboardEvent<HTMLElement>) => {
+    const imageItem = Array.from(event.clipboardData.items).find((item) => item.type.startsWith("image/"));
+    const file = imageItem?.getAsFile();
+    if (!file) return;
+    event.preventDefault();
+    attachImage(orderId, file);
   };
 
   const removeImage = (orderId: string) => {
@@ -386,16 +409,30 @@ function PhotoBarcodeView({
     });
   };
 
+  const disableImage = (orderId: string) => {
+    removeImage(orderId);
+    setDisabledImageOrders((prev) => ({ ...prev, [orderId]: true }));
+  };
+
+  const enableImage = (orderId: string) => {
+    setDisabledImageOrders((prev) => {
+      const next = { ...prev };
+      delete next[orderId];
+      return next;
+    });
+  };
+
   return (
     <div className="content printable-area photo-view">
       <div className="toolbar no-print">
         <strong>{orders.length} pedido(s)</strong>
-        <span>Foto automática só para troféus/taças. A imagem anexada é por pedido e temporária.</span>
+        <span>Para colar uma imagem, clique na área da imagem do pedido e aperte Ctrl+V. A imagem é temporária.</span>
       </div>
 
       <div className="photo-grid">
         {orders.map((order) => {
           const attached = attachments[order.orderId];
+          const imageDisabled = !!disabledImageOrders[order.orderId];
           return (
             <section className="photo-card" key={order.orderId}>
               <div className="photo-card-head">
@@ -408,25 +445,42 @@ function PhotoBarcodeView({
                 </div>
               </div>
 
-              <div className="attached-photo-block">
-                <div className="attached-photo">
-                  {attached ? <img src={attached} alt={`Imagem do pedido ${order.orderId}`} /> : <span>imagem do pedido</span>}
+              {imageDisabled ? (
+                <div className="image-disabled-note no-print">
+                  <span>Imagem desativada para este pedido.</span>
+                  <button className="btn ghost" onClick={() => enableImage(order.orderId)}>Ativar imagem</button>
                 </div>
-                <div className="attached-actions no-print">
-                  <label className="btn small-file-btn">
-                    {attached ? "Trocar imagem" : "Anexar imagem"}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => {
-                        attachImage(order.orderId, e.target.files?.[0]);
-                        e.currentTarget.value = "";
-                      }}
-                    />
-                  </label>
-                  {attached && <button className="btn ghost" onClick={() => removeImage(order.orderId)}>Remover</button>}
+              ) : (
+                <div
+                  className={attached ? "attached-photo-block has-image" : "attached-photo-block"}
+                  tabIndex={0}
+                  onPaste={(event) => pasteImage(order.orderId, event)}
+                  title="Clique aqui e aperte Ctrl+V para colar uma imagem"
+                >
+                  <div className="attached-photo">
+                    {attached ? (
+                      <img src={attached} alt={`Imagem do pedido ${order.orderId}`} />
+                    ) : (
+                      <span>clique aqui e cole Ctrl+V</span>
+                    )}
+                  </div>
+                  <div className="attached-actions no-print">
+                    <label className="btn small-file-btn">
+                      {attached ? "Trocar imagem" : "Anexar arquivo"}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(event) => {
+                          attachImage(order.orderId, event.target.files?.[0]);
+                          event.currentTarget.value = "";
+                        }}
+                      />
+                    </label>
+                    {attached && <button className="btn ghost" onClick={() => removeImage(order.orderId)}>Remover imagem</button>}
+                    <button className="btn ghost" onClick={() => disableImage(order.orderId)}>Sem imagem neste pedido</button>
+                  </div>
                 </div>
-              </div>
+              )}
 
               <ul className="photo-items">
                 {order.items.map((item, idx) => {
