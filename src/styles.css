@@ -180,15 +180,23 @@
   flex-shrink: 0;
 }
 
-/* Folha de impressão da lista de personalizados — escondida na tela */
-.print-sheet-only { display: none; }
+/* Folhas de impressão alternativas — escondidas na tela */
+.print-sheet-only,
+.print-nf-only,
+.print-photo-only { display: none; }
 
 @media print {
   body.print-sheet-mode .print-area,
-  body.print-sheet-mode .no-print {
+  body.print-sheet-mode .no-print,
+  body.print-nf-mode .print-area,
+  body.print-nf-mode .no-print,
+  body.print-photo-mode .print-area,
+  body.print-photo-mode .no-print {
     display: none !important;
   }
-  body.print-sheet-mode .print-sheet-only {
+  body.print-sheet-mode .print-sheet-only,
+  body.print-nf-mode .print-nf-only,
+  body.print-photo-mode .print-photo-only {
     display: block !important;
     position: fixed;
     inset: 0;
@@ -196,6 +204,7 @@
     color: black;
     padding: 8mm;
     z-index: 99999;
+    overflow: visible;
   }
 }
 
