@@ -91,6 +91,10 @@ function productImageFor(product: string, variation: string): string | null {
   return null;
 }
 
+function priorityImageFor(sectionTitle: string, variation: string, itemName: string): string | null {
+  return productImageFor(`${sectionTitle} ${variation} ${itemName}`, `${variation} ${itemName}`);
+}
+
 export default function App() {
   const [text, setText] = useState("");
   const [submitted, setSubmitted] = useState("");
@@ -309,6 +313,35 @@ function Sections({ sections }: { sections: Section[] }) {
   );
 }
 
+function PrioritySections({ sections }: { sections: Section[] }) {
+  return (
+    <div className="priority-sections">
+      {sections.map((sec) => (
+        <div className="priority-section" key={sec.key + sec.title}>
+          <h3>{sec.emoji} {sec.title}</h3>
+          {sec.groups.map((group, idx) => (
+            <div className="priority-group" key={group.variation + idx}>
+              {group.variation && <h4>{group.variation}</h4>}
+              <ul>
+                {group.items.map((item) => {
+                  const img = priorityImageFor(sec.title, group.variation, item.name);
+                  return (
+                    <li className="priority-row" key={item.name + item.unit}>
+                      {img ? <img className="priority-thumb" src={img} alt={item.name} /> : <div className="priority-thumb missing-img">sem foto</div>}
+                      <span>{item.name}</span>
+                      <strong>{item.qty}{item.unit ? ` ${item.unit}` : ""}</strong>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function PriorityView({ sheets }: { sheets: PriorityOrderSheet[] }) {
   if (!sheets.length) return <div className="empty"><h2>Nenhum item de prioridade.</h2><p>Provavelmente o lote só tem medalhas/chaveiros.</p></div>;
   return (
@@ -317,7 +350,7 @@ function PriorityView({ sheets }: { sheets: PriorityOrderSheet[] }) {
         <section className="sheet-block compact" key={order.orderId + idx}>
           <h2>#{idx + 1} · Pedido {order.orderId} · Envio até {order.date}</h2>
           {order.urgencyLabel && <p className="urgent">⚡ {order.urgencyLabel}</p>}
-          <Sections sections={order.sections} />
+          <PrioritySections sections={order.sections} />
         </section>
       ))}
     </div>
