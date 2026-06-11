@@ -95,6 +95,22 @@ function priorityImageFor(sectionTitle: string, variation: string, itemName: str
   return productImageFor(`${sectionTitle} ${variation} ${itemName}`, `${variation} ${itemName}`);
 }
 
+function compactProductName(product: string, variation = ""): string {
+  const text = `${product} ${variation}`.toLowerCase();
+
+  if (/ta[çc]a/.test(text)) return "Taça";
+  if (/trof[eé]u|trof[eé]us|tfa\s*\d+|ta\s*\d+/.test(text)) return "Troféu";
+  if (/medalh/.test(text)) return "Medalha";
+  if (/hand\s*grip/.test(text)) return "Hand grip";
+  if (/mini\s*painel|painel/.test(text)) return "Painel";
+  if (/placa/.test(text)) return "Placa";
+  if (/ripa/.test(text)) return "Ripa";
+  if (/chaveir/.test(text)) return "Chaveiro";
+  if (/totem/.test(text)) return "Totem";
+
+  return "Produto";
+}
+
 export default function App() {
   const [text, setText] = useState("");
   const [submitted, setSubmitted] = useState("");
@@ -325,10 +341,15 @@ function PrioritySections({ sections }: { sections: Section[] }) {
               <ul>
                 {group.items.map((item) => {
                   const img = priorityImageFor(sec.title, group.variation, item.name);
+                  const kind = compactProductName(sec.title, group.variation || item.name);
                   return (
                     <li className="priority-row" key={item.name + item.unit}>
                       {img ? <img className="priority-thumb" src={img} alt={item.name} /> : <div className="priority-thumb missing-img">sem foto</div>}
-                      <span>{item.name}</span>
+                      <span className="priority-text">
+                        <span className="product-kind">{kind}</span>
+                        {group.variation && <strong className="item-variation">{group.variation}</strong>}
+                        <span className="item-detail">{item.name}</span>
+                      </span>
                       <strong>{item.qty}{item.unit ? ` ${item.unit}` : ""}</strong>
                     </li>
                   );
@@ -474,7 +495,7 @@ function PhotoBarcodeView({
                   <p>Envio até {order.date}</p>
                 </div>
                 <div className="barcode-box">
-                  <Barcode value={order.orderId} height={42} width={1.35} fontSize={10} />
+                  <Barcode value={order.orderId} height={38} width={1.25} fontSize={9} />
                 </div>
               </div>
 
@@ -515,19 +536,27 @@ function PhotoBarcodeView({
                 </div>
               )}
 
-              <ul className="photo-items">
+              <ul className="photo-items compact-items">
                 {order.items.map((item, idx) => {
                   const img = productImageFor(item.product, item.variation);
+                  const kind = compactProductName(item.product, item.variation);
                   return (
                     <li key={`${order.orderId}-${idx}`}>
                       {img ? (
-                        <img src={img} alt={item.product} />
+                        <img src={img} alt={kind} />
                       ) : (
                         <div className="missing-img">sem foto</div>
                       )}
-                      <div>
-                        <strong>{item.qty}x</strong> {item.product}
-                        {item.variation && <span> — {item.variation}</span>}
+                      <div className="photo-item-text">
+                        <div className="item-mainline">
+                          <span className="product-kind">{kind}</span>
+                          <strong>{item.qty}x</strong>
+                        </div>
+                        {item.variation ? (
+                          <strong className="item-variation">{item.variation}</strong>
+                        ) : (
+                          <span className="item-detail">sem variação</span>
+                        )}
                       </div>
                     </li>
                   );
